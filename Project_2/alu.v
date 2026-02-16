@@ -52,26 +52,49 @@ module alu (
     // Set less than result. This is used externally to determine if a branch
     // should be taken.
     output wire        o_slt
-);
-	// Verilog wont allow wire in always, so I need reg (they should synthesize into combinational logic though)
-	reg [31:0] result_temp;
-	
+);	
+	// Comparison logic
+	wire op1_sign = i_op1[31];
+	wire op2_sign = i_op2[31];
+	wire signs_differ = op1_sign ^ op2_sign;
+	wire unsigned_less = (i_op1 < i_op2);
+	wire signed_less = signs_differ ? op1_sign : unsigned_less;
+
+	// Shift logic - barrel shifter implementation
+	wire [4:0] shift_amt = i_op2[4:0];
+	wire [31:0] sll_stage0, sll_stage1, sll_stage2, sll_stage3, sll_stage4;
+	wire [31:0] srl_stage0, srl_stage1, srl_stage2, srl_stage3, srl_stage4;
+	wire fill_bit = i_arith & i_op1[31];
+
+	// Shift left barrel shifter (5 stages for 32-bit)
+	assign sll_stage0 = shift_amt[0] ? {i_op1[30:0], 1'b0} : i_op1;
+	assign sll_stage1 = shift_amt[1] ? {sll_stage0[29:0], 2'b0} : sll_stage0;
+	assign sll_stage2 = shift_amt[2] ? {sll_stage1[27:0], 4'b0} : sll_stage1;
+	assign sll_stage3 = shift_amt[3] ? {sll_stage2[23:0], 8'b0} : sll_stage2;
+	assign sll_stage4 = shift_amt[4] ? {sll_stage3[15:0], 16'b0} : sll_stage3;
+
+	// Shift right barrel shifter (5 stages for 32-bit)
+	assign srl_stage0 = shift_amt[0] ? {{1{fill_bit}}, i_op1[31:1]} : i_op1;
+	assign srl_stage1 = shift_amt[1] ? {{2{fill_bit}}, srl_stage0[31:2]} : srl_stage0;
+	assign srl_stage2 = shift_amt[2] ? {{4{fill_bit}}, srl_stage1[31:4]} : srl_stage1;
+	assign srl_stage3 = shift_amt[3] ? {{8{fill_bit}}, srl_stage2[31:8]} : srl_stage2;
+	assign srl_stage4 = shift_amt[4] ? {{16{fill_bit}}, srl_stage3[31:16]} : srl_stage3;
+
 	// Setting information
-	assign o_result = result_temp;
-    assign o_slt = i_unsigned ? (i_op1 < i_op2) : ($signed(i_op1) < $signed(i_op2));
+	assign o_slt = i_unsigned ? unsigned_less : signed_less;
 	assign o_eq = (i_op1 == i_op2);
-	
+
 	// Figure out which main mode we are in
-	// Also my friend told me to use ternary over case statements bc they can act weird later in the course... my guess is weird synthesis
 	always @(*) begin
-    result_temp = (i_opsel == 3'b001) ? (i_op1 << i_op2) :
-                  (i_opsel == 3'b010 || i_opsel == 3'b011) ? {31'b0, (i_unsigned ? (i_op1 < i_op2) : ($signed(i_op1) < $signed(i_op2)))} :
-                  (i_opsel == 3'b100) ? (i_op1 ^ i_op2) :
-                  (i_opsel == 3'b101) ? (i_arith ? $unsigned($signed(i_op1) >>> i_op2[4:0]) : (i_op1 >> i_op2[4:0])) :
-                  (i_opsel == 3'b110) ? (i_op1 | i_op2) :
-                  (i_opsel == 3'b111) ? (i_op1 & i_op2) :
-                  i_sub ? (i_op1 - i_op2) : (i_op1 + i_op2);
-end
+		o_result = (i_opsel == 3'b001) ? sll_stage4 :
+				   (i_opsel == 3'b010) ? {31'b0, (i_unsigned ? unsigned_less : signed_less)} :
+				   (i_opsel == 3'b011) ? {31'b0, (i_unsigned ? unsigned_less : signed_less)} :
+				   (i_opsel == 3'b100) ? (i_op1 ^ i_op2) :
+				   (i_opsel == 3'b101) ? srl_stage4 :
+				   (i_opsel == 3'b110) ? (i_op1 | i_op2) :
+				   (i_opsel == 3'b111) ? (i_op1 & i_op2) :
+				   i_sub ? (i_op1 - i_op2) : (i_op1 + i_op2);
+	end
 	
 endmodule
 

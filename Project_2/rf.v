@@ -48,7 +48,7 @@ module rf #(
         for (i = 0; i < 32; i = i + 1) begin
             register[i] <= 32'b0;
         end
-    end else if (i_rd_wen && i_rd_waddr != 5'b0) begin
+    end else if (i_rd_wen & i_rd_waddr != 5'b0) begin
         register[i_rd_waddr] <= i_rd_wdata;
     end
 end
@@ -61,8 +61,8 @@ end
 	generate
 		if (BYPASS_EN) begin
 			// With bypass: if writing to the same register being read, forward the write data
-			assign o_rs1_rdata = (i_rd_wen && (i_rd_waddr == i_rs1_raddr) && (i_rd_waddr != 5'b0)) ? i_rd_wdata : rs1_reg_data;
-			assign o_rs2_rdata = (i_rd_wen && (i_rd_waddr == i_rs2_raddr) && (i_rd_waddr != 5'b0)) ? i_rd_wdata : rs2_reg_data;
+			assign o_rs1_rdata = (i_rd_wen & (i_rd_waddr == i_rs1_raddr) & (i_rd_waddr != 5'b0)) ? i_rd_wdata : rs1_reg_data;
+			assign o_rs2_rdata = (i_rd_wen & (i_rd_waddr == i_rs2_raddr) & (i_rd_waddr != 5'b0)) ? i_rd_wdata : rs2_reg_data;
 		end else begin
 			// Without bypass: just output the register data
 			assign o_rs1_rdata = rs1_reg_data;

@@ -85,17 +85,14 @@ module alu (
 	assign o_eq = (i_op1 == i_op2);
 
 	// Figure out which main mode we are in
-	always @(*) begin
-		o_result = (i_opsel == 3'b001) ? sll_stage4 :
-				   (i_opsel == 3'b010) ? {31'b0, (i_unsigned ? unsigned_less : signed_less)} :
-				   (i_opsel == 3'b011) ? {31'b0, (i_unsigned ? unsigned_less : signed_less)} :
-				   (i_opsel == 3'b100) ? (i_op1 ^ i_op2) :
-				   (i_opsel == 3'b101) ? srl_stage4 :
-				   (i_opsel == 3'b110) ? (i_op1 | i_op2) :
-				   (i_opsel == 3'b111) ? (i_op1 & i_op2) :
-				   i_sub ? (i_op1 - i_op2) : (i_op1 + i_op2);
-	end
-	
+	assign o_result =   (i_opsel == 3'b001) ? sll_stage4 :
+				        (i_opsel == 3'b010) ? {31'b0, (i_unsigned ? unsigned_less : signed_less)} :
+				        (i_opsel == 3'b011) ? {31'b0, (i_unsigned ? unsigned_less : signed_less)} :
+				        (i_opsel == 3'b100) ? (i_op1 ^ i_op2) :
+				        (i_opsel == 3'b101) ? srl_stage4 :
+				        (i_opsel == 3'b110) ? (i_op1 | i_op2) :
+                        (i_opsel == 3'b111) ? (i_op1 & i_op2) :
+                        i_sub ? (i_op1 - i_op2) : (i_op1 + i_op2);
 endmodule
 
 `default_nettype wire

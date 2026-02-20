@@ -1,0 +1,6 @@
+iverilog -o sim.vvp <file name_tb>.vvp <file name>.v <sub modules>.v
+vvp <file name_tb>.vvp
+
+Example:
+iverilog -o sim.vvp execute_phase_tb.v execute_phase.v alu.v
+vvp sim.vvp

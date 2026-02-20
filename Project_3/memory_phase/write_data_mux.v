@@ -8,5 +8,5 @@ module write_data_mux (
 );
 
 write_data_mux_out =   store_sel[1] ? o_rs2_rdata : 
-                        (store_sel[0] ?o_rs2_rdata[15:0] : o_rs2_rdata[7:0]);
+                        (store_sel[0] ?o_rs2_rdata_16 : o_rs2_rdata_8);
 endmodule

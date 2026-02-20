@@ -130,7 +130,44 @@ module hart #(
     ,`RVFI_OUTPUTS,
 `endif
 );
-    // Fill in your implementation here.
+
+//execute signals
+
+
+
+
+
+reg [31:0] pc_reg;
+reg [31:0] pc_next;
+always @(posedge i_clk) begin
+    if (i_rst) begin
+        pc_reg <= RESET_ADDR;
+    end else begin
+        pc_reg <= pc_next;
+    end
+end
+
+assign o_dmem_addr = pc_reg;
+
+wire [31:0] instruction;
+assign instruction = i_imem_rdata;
+
+
+
+execute_phase iDUT_execute (
+        .pc_in(pc_reg), .o_rs1_rdata_in(o_rs1_rdata_in),
+        .o_rs2_rdata_in(o_rs2_rdata_in), .o_immediate(o_immediate),
+        .jump(jump), .jalr(jalr), .branch(branch),
+        .branch_type(branch_type), .i_opsel(i_opsel),
+        .i_sub(i_sub), .i_unsigned(i_unsigned), .i_arith(i_arith),
+        .auipc(auipc), .i_alu_src(i_alu_src),
+        .pc_out(pc_next), .o_result(o_result),
+        .o_rs2_rdata_out(o_rs2_rdata_out)
+    );
+
+
+
+
 
 endmodule
 

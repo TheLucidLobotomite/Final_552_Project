@@ -138,7 +138,7 @@ always @(*) begin
     end else if(opcode == 7'b1101111) begin // J-type JAL
         jump = 1;
         jalr = 0;
-        branch = 1;
+        branch = 0;
         branch_type = 3'b010;
         rd_dest_select = 2'b10;
         o_dmem_wen = 0;
@@ -152,7 +152,7 @@ always @(*) begin
         i_rd_wen = 1;
         i_format = 6'b100000;        
     end else if(opcode == 7'b1100111) begin // I-type JALR
-        jump = 1;
+        jump = 0;
         jalr = 1;
         branch = 0;
         rd_dest_select = 2'b10;

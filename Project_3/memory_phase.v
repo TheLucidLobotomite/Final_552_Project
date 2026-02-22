@@ -28,7 +28,7 @@ module memory_phase (
         (byte_offset == 2'b10) ? 4'b0100 :
                                  4'b1000;
 
-    // Actually cleaning the data
+    // Actually setting the data
     assign o_dmem_wdata = store_sel[1] ? o_rs2_rdata :                                      // SW: full word, no shift
         (!store_sel[1] && store_sel[0]) ?
             (byte_offset[1] ? {o_rs2_rdata[15:0], 16'b0} : {16'b0, o_rs2_rdata[15:0]}) :    // SH: 16-bit half-word
@@ -37,24 +37,16 @@ module memory_phase (
         (byte_offset == 2'b10) ? { 8'b0, o_rs2_rdata[7:0], 16'b0}  :
                                  {o_rs2_rdata[7:0], 24'b0};
 
-    // -------------------------------------------------------------------------
-    // Load data — shift read data right so the relevant bytes are in the LSBs,
-    // then sign/zero extend based on load_sel.
-    //
     // load_sel encoding (funct3):
     //   3'b000 = LB  (sign-extend byte)
     //   3'b001 = LH  (sign-extend half)
     //   3'b010 = LW  (full word)
     //   3'b100 = LBU (zero-extend byte)
-    //   3'b101 = LHU (zero-extend half)
-    // -------------------------------------------------------------------------
-    wire [31:0] shifted_rdata =
-        load_sel[1]                      ? i_dmem_rdata :                       // LW: no shift needed
-        (!load_sel[1] && load_sel[0])    ?                                      // LH / LHU
-            (byte_offset[1] ? {16'b0, i_dmem_rdata[31:16]}
-                            : {16'b0, i_dmem_rdata[15:0]}) :
-        // LB / LBU
-        (byte_offset == 2'b00) ? {24'b0, i_dmem_rdata[ 7: 0]} :
+    //   3'b101 = LHU (zero-extend half) 
+    wire [31:0] shifted_rdata = load_sel[1] ? i_dmem_rdata :                                // LW: no shift needed                   
+        (!load_sel[1] && load_sel[0]) ?
+        (byte_offset[1] ? {16'b0, i_dmem_rdata[31:16]} : {16'b0, i_dmem_rdata[15:0]}) :     // LH / LHU
+        (byte_offset == 2'b00) ? {24'b0, i_dmem_rdata[ 7: 0]} :                             // LB / LBU
         (byte_offset == 2'b01) ? {24'b0, i_dmem_rdata[15: 8]} :
         (byte_offset == 2'b10) ? {24'b0, i_dmem_rdata[23:16]} :
                                  {24'b0, i_dmem_rdata[31:24]};

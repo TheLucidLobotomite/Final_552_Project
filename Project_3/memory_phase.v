@@ -11,7 +11,7 @@ module memory_phase (
     output wire        o_dmem_ren,
     output wire        o_dmem_wen,
     output wire [31:0] o_dmem_wdata,
-    output wire [ 3:0] o_dmem_mask,
+    output wire [3:0]  o_dmem_mask,
     output wire [31:0] load_mux_out
 );
     assign o_dmem_addr = {alu_result[31:2], 2'b00};
@@ -46,8 +46,8 @@ module memory_phase (
     wire [31:0] shifted_rdata = load_sel[1] ? i_dmem_rdata :                                // LW: no shift needed                   
         (!load_sel[1] && load_sel[0]) ?
         (byte_offset[1] ? {16'b0, i_dmem_rdata[31:16]} : {16'b0, i_dmem_rdata[15:0]}) :     // LH / LHU
-        (byte_offset == 2'b00) ? {24'b0, i_dmem_rdata[ 7: 0]} :                             // LB / LBU
-        (byte_offset == 2'b01) ? {24'b0, i_dmem_rdata[15: 8]} :
+        (byte_offset == 2'b00) ? {24'b0, i_dmem_rdata[7:0]} :                               // LB / LBU
+        (byte_offset == 2'b01) ? {24'b0, i_dmem_rdata[15:8]} :
         (byte_offset == 2'b10) ? {24'b0, i_dmem_rdata[23:16]} :
                                  {24'b0, i_dmem_rdata[31:24]};
 

@@ -6,8 +6,8 @@ module execute_phase (
     input wire jump,                                    // From control.v
     input wire jalr,
     input wire branch,
-    input wire [2:0]branch_type,
-    input wire [2:0]i_opsel,
+    input wire [2:0] branch_type,
+    input wire [2:0] i_opsel,
     input wire i_sub,
     input wire i_unsigned,
     input wire i_arith,
@@ -16,8 +16,7 @@ module execute_phase (
 
     // Outputs
     output wire [31:0]pc_out,
-    output wire [31:0]o_result,
-    output wire [31:0]o_rs2_rdata_out
+    output wire [31:0]o_result
 );
     /////////////////////////////////////
     // The grind starts here gentlemen
@@ -28,7 +27,6 @@ module execute_phase (
     wire op_eq, op_slt, br_condition_met;
 
     // Pre-alu
-    assign o_rs2_rdata_out = o_rs2_rdata_in;
 	assign i_op1 = auipc ? pc_in : o_rs1_rdata_in;
     assign i_op2 = i_alu_src ? o_immediate : o_rs2_rdata_in;
 

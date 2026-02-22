@@ -130,92 +130,147 @@ module hart #(
     ,`RVFI_OUTPUTS,
 `endif
 );
-
-//execute signals
-wire [31:0] o_rs1_rdata_in, o_rs2_rdata_in, o_immediate;
-wire jump, jalr, branch;
-wire [2:0] branch_type, i_opsel;
-wire [1:0] rd_dest_select;
-wire [2:0] store_sel, load_sel;
-wire o_dmem_ren, o_dmem_wen;
-wire i_sub, i_unsigned, i_arith, auipc, i_alu_src;
-wire [31:0] o_result, o_rs2_rdata_out;
-wire [31:0] writeback_mux_out;
-wire [5:0] i_format;
-
-
-reg [31:0] pc_reg;
-wire [31:0] pc_next;
-always @(posedge i_clk) begin
-    if (i_rst) begin
-        pc_reg <= RESET_ADDR;
-    end else begin
-        pc_reg <= pc_next;
-    end
-end
-
-assign o_imem_addr = pc_reg;
-
-reg [31:0] instruction;
-
-//instruction decode
-always @(posedge i_clk) begin
-    if (i_rst) begin
-        instruction <= 32'b0;
-    end else begin
-        instruction <= i_imem_rdata;
-    end
-end
-
-decode_phase iDUT_decode (
-    .clk(i_clk), .rst(i_rst), .i_imem_rdata(instruction),
-    .writeback_mux_out(writeback_mux_out),
-    .o_rs1_data_in(o_rs1_rdata_in), .o_rs2_data_in(o_rs2_rdata_in),
-    .o_immediate(o_immediate), .jump(jump), .jalr(jalr), .branch(branch),
-    .branch_type(branch_type), .rd_dest_select(rd_dest_select),
-    .store_sel(store_sel), .load_sel(load_sel), .o_dmem_ren(o_dmem_ren),
-    .o_dmem_wen(o_dmem_wen), .i_opsel(i_opsel), .i_arith(i_arith),
-    .i_unsigned(i_unsigned), .i_sub(i_sub), .auipc(auipc),
-    .i_alu_src(i_alu_src), .i_rd_wen(i_rd_wen), .i_format(i_format)
-);
-
-
-
-execute_phase iDUT_execute (
-        .pc_in(pc_reg), .o_rs1_rdata_in(o_rs1_rdata_in),
-        .o_rs2_rdata_in(o_rs2_rdata_in), .o_immediate(o_immediate),
-        .jump(jump), .jalr(jalr), .branch(branch),
-        .branch_type(branch_type), .i_opsel(i_opsel),
-        .i_sub(i_sub), .i_unsigned(i_unsigned), .i_arith(i_arith),
-        .auipc(auipc), .i_alu_src(i_alu_src),
-        .pc_out(pc_next), .o_result(o_result),
-        .o_rs2_rdata_out(o_rs2_rdata_out)
-    );
+    /////////////////////////////////////
+    // PC/Instruction Fetch Phase
+    /////////////////////////////////////
+    reg  [31:0] pc_reg;
+    wire [31:0] pc_next;
+    wire [31:0] instruction;
     
-    assign o_dmem_addr = o_result;
+    assign o_imem_raddr = pc_reg;
+    assign instruction = i_imem_rdata;
 
-    save_mux iDUT_save_mux (
-        .store_sel(store_sel), .o_rs2_rdata(o_rs2_rdata_in),
-        .o_rs2_rdata_16(o_rs2_rdata_out[15:0]),
-        .o_rs2_rdata_8(o_rs2_rdata_out[7:0]),
-        .write_data_mux_out(o_dmem_wdata)
+    always @(posedge i_clk) begin
+        if (i_rst)
+            pc_reg <= RESET_ADDR;
+        else
+            pc_reg <= pc_next;
+    end
+   
+
+    /////////////////////////////////////
+    // Decode Phase
+    /////////////////////////////////////
+    wire [31:0] o_rs1_rdata, o_rs2_rdata, o_immediate;
+    wire        jump, jalr, branch;
+    wire [2:0]  branch_type, i_opsel;
+    wire [1:0]  rd_dest_select;
+    wire [2:0]  store_sel, load_sel;
+    wire        dmem_ren, dmem_wen;
+    wire        i_sub, i_unsigned, i_arith, auipc, i_alu_src, i_rd_wen;
+    wire [5:0]  i_format;
+    wire [31:0] writeback_mux_out;
+
+    decode iDUT_decode (
+        .clk                (i_clk),
+        .rst                (i_rst),
+        .i_imem_rdata       (instruction),
+        .writeback_mux_out  (writeback_mux_out),
+        .o_rs1_data_in      (o_rs1_rdata),
+        .o_rs2_data_in      (o_rs2_rdata),
+        .o_immediate        (o_immediate),
+        .jump               (jump),
+        .jalr               (jalr),
+        .branch             (branch),
+        .branch_type        (branch_type),
+        .rd_dest_select     (rd_dest_select),
+        .store_sel          (store_sel),
+        .load_sel           (load_sel),
+        .o_dmem_ren         (dmem_ren),
+        .o_dmem_wen         (dmem_wen),
+        .i_opsel            (i_opsel),
+        .i_arith            (i_arith),
+        .i_unsigned         (i_unsigned),
+        .i_sub              (i_sub),
+        .auipc              (auipc),
+        .i_alu_src          (i_alu_src),
+        .i_rd_wen           (i_rd_wen),
+        .i_format           (i_format)
     );
 
-    //memory
+    /////////////////////////////////////
+    // Execute Phase
+    /////////////////////////////////////
+    wire [31:0] alu_result;
 
-    load_muxes iDUT_load_mux (
-        .load_sel(load_sel), .Read_data_from_dmem(?),
-        .load_mux_out()
+    execute_phase iDUT_execute (
+        .pc_in              (pc_reg),
+        .o_rs1_rdata_in     (o_rs1_rdata),
+        .o_rs2_rdata_in     (o_rs2_rdata),
+        .o_immediate        (o_immediate),
+        .jump               (jump),
+        .jalr               (jalr),
+        .branch             (branch),
+        .branch_type        (branch_type),
+        .i_opsel            (i_opsel),
+        .i_sub              (i_sub),
+        .i_unsigned         (i_unsigned),
+        .i_arith            (i_arith),
+        .auipc              (auipc),
+        .i_alu_src          (i_alu_src),
+        .pc_out             (pc_next),
+        .o_result           (alu_result)
     );
 
-    writeback_mux iDUT_writeback_mux (
-        .rd_dest_select(rd_dest_select), .ALU_result(o_result),
-        .PC_plus_4(pc_reg + 32'd4), .o_immediate(o_immediate),
-        .data_read_from_dmem(?), .writeback_mux_out(writeback_mux_out)
+    /////////////////////////////////////
+    // Memory Phase
+    /////////////////////////////////////
+    wire [31:0] load_mux_out;
+
+    memory_phase iDUT_memory (
+        .alu_result         (alu_result),
+        .load_sel           (load_sel),
+        .store_sel          (store_sel),
+        .dmem_ren           (dmem_ren),
+        .dmem_wen           (dmem_wen),
+        .o_rs2_rdata        (o_rs2_rdata),
+        .i_dmem_rdata       (i_dmem_rdata),
+        .o_dmem_addr        (o_dmem_addr),
+        .o_dmem_ren         (o_dmem_ren),
+        .o_dmem_wen         (o_dmem_wen),
+        .o_dmem_wdata       (o_dmem_wdata),
+        .o_dmem_mask        (o_dmem_mask),
+        .load_mux_out       (load_mux_out)
     );
 
+    /////////////////////////////////////
+    // Writeback Phase
+    /////////////////////////////////////
+    writeback_phase iDUT_writeback (
+        .rd_dest_select     (rd_dest_select),
+        .alu_result         (alu_result),
+        .pc_plus_4          (pc_reg + 32'd4),
+        .o_immediate        (o_immediate),
+        .load_mux_out       (load_mux_out),
+        .writeback_mux_out  (writeback_mux_out)
+    );
 
+    /////////////////////////////////////
+    // Retire Interface - hart comments
+    /////////////////////////////////////
+    assign o_retire_valid     = ~i_rst;
+    assign o_retire_inst      = instruction;
+    assign o_retire_pc        = pc_reg;
+    assign o_retire_next_pc   = pc_next;
 
+    assign o_retire_rs1_raddr = instruction[19:15];
+    assign o_retire_rs2_raddr = instruction[24:20];
+    assign o_retire_rd_waddr  = i_rd_wen ? instruction[11:7] : 5'd0;
+
+    assign o_retire_rs1_rdata = o_rs1_rdata;
+    assign o_retire_rs2_rdata = o_rs2_rdata;
+    assign o_retire_rd_wdata  = writeback_mux_out;
+
+    // DO NOT FORGOR THIS
+    assign o_retire_halt = (instruction == 32'h00100073);
+
+    // Trap on misaligned instruction fetch target or misaligned data access
+    wire misaligned_fetch = (jump | jalr | branch) & (pc_next[1:0] != 2'b00);
+    wire misaligned_dmem  = (dmem_wen & (store_sel == 3'b010) & (alu_result[1:0] != 2'b00)) |
+                            (dmem_wen & (store_sel == 3'b001) & (alu_result[0]   != 1'b0))  |
+                            (dmem_ren & (load_sel  == 3'b010) & (alu_result[1:0] != 2'b00)) |
+                            (dmem_ren & (load_sel  == 3'b001) & (alu_result[0]   != 1'b0));
+    assign o_retire_trap  = misaligned_fetch | misaligned_dmem;
 
 endmodule
 

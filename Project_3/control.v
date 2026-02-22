@@ -85,6 +85,7 @@ module control (
                 i_alu_src      = 1'b1;
                 i_rd_wen       = 1'b1;
                 i_format       = 6'b000010;
+                store_sel      = funct3; // Pass funct3 to memory phase for byte/half-word/word selection
             end
 
             7'b0100011: begin // Store

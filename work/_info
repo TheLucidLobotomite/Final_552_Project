@@ -1,0 +1,241 @@
+m255
+K4
+z2
+!s11f vlog 2020.1 2020.02, Feb 28 2020
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+dC:/Users/ITAUser
+valu
+Z0 !s110 1771790169
+!i10b 1
+!s100 P9:iLQH^P:;`1]0GHi>`K2
+Z1 !s11b Dg1SIo80bB@j0V0VzS_@n1
+Ie_oZ;PnZ000VldXa;@<0m0
+Z2 VDg1SIo80bB@j0V0VzS_@n1
+Z3 dC:/Users/ITAUser/Final_552_Project
+Z4 w1771783521
+8C:/Users/ITAUser/Final_552_Project/Project_3/alu.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/alu.v
+!i122 61
+L0 8 89
+Z5 OV;L;2020.1;71
+r1
+!s85 0
+31
+Z6 !s108 1771790169.000000
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/alu.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/alu.v|
+!i113 1
+Z7 o-work work
+Z8 tCvgOpt 0
+vcontrol
+R0
+!i10b 1
+!s100 E73hIKOW:mQm]4RW:^04@3
+R1
+I;6g5K<P:Lhoo?Uno@;O[R2
+R2
+R3
+Z9 w1771786121
+8C:/Users/ITAUser/Final_552_Project/Project_3/control.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/control.v
+!i122 62
+L0 1 129
+R5
+r1
+!s85 0
+31
+R6
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/control.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/control.v|
+!i113 1
+R7
+R8
+vdecode
+R0
+!i10b 1
+!s100 AVlkZXdUcIzcVnmgI9]U40
+R1
+ICJYINMO_C`a:MYCT5910J1
+R2
+R3
+R4
+8C:/Users/ITAUser/Final_552_Project/Project_3/decode_phase.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/decode_phase.v
+!i122 63
+Z10 L0 1 72
+R5
+r1
+!s85 0
+31
+R6
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/decode_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/decode_phase.v|
+!i113 1
+R7
+R8
+vexecute_phase
+R0
+!i10b 1
+!s100 M8F8[1KMheceWVBBfZH>g0
+R1
+IAIWXlan`mN5iP6PU^0L`O1
+R2
+R3
+R4
+8C:/Users/ITAUser/Final_552_Project/Project_3/execute_phase.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/execute_phase.v
+!i122 64
+L0 1 61
+R5
+r1
+!s85 0
+31
+R6
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/execute_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/execute_phase.v|
+!i113 1
+R7
+R8
+vhart
+R0
+!i10b 1
+!s100 >fhKgOK5nP90aK@Vac_De1
+R1
+IdRRc]2OkJWSC6Z=MiXi1g2
+R2
+R3
+R4
+8C:/Users/ITAUser/Final_552_Project/Project_3/hart.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/hart.v
+!i122 65
+L0 1 275
+R5
+r1
+!s85 0
+31
+R6
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/hart.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/hart.v|
+!i113 1
+R7
+R8
+vhart_tb
+Z11 !s110 1771790170
+!i10b 1
+!s100 TDJZM0Ob=YG4@n3>k7omR1
+R1
+I]mjOHQDg62N7:U1iIZHI30
+R2
+R3
+w1771787735
+8C:/Users/ITAUser/Final_552_Project/project3_starter_files/tb/tb.v
+FC:/Users/ITAUser/Final_552_Project/project3_starter_files/tb/tb.v
+!i122 70
+L0 1 132
+R5
+r1
+!s85 0
+31
+Z12 !s108 1771790170.000000
+!s107 C:/Users/ITAUser/Final_552_Project/project3_starter_files/tb/tb.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project3_starter_files/tb/tb.v|
+!i113 1
+R7
+R8
+vimm
+R0
+!i10b 1
+!s100 m@J_Hi3G?1io0CFkBLHQY2
+R1
+I>]7C>6N?]^WQ@<75G;bR70
+R2
+R3
+R4
+8C:/Users/ITAUser/Final_552_Project/Project_3/imm.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/imm.v
+!i122 66
+L0 6 34
+R5
+r1
+!s85 0
+31
+R6
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/imm.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/imm.v|
+!i113 1
+R7
+R8
+vmemory_phase
+!s110 1771791707
+!i10b 1
+!s100 l;2WV1GjNGa10h2@fKZS21
+R1
+IdND=<OFO;JEDD@j48W<kf3
+R2
+R3
+w1771791697
+8C:/Users/ITAUser/Final_552_Project/Project_3/memory_phase.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/memory_phase.v
+!i122 71
+R10
+R5
+r1
+!s85 0
+31
+!s108 1771791707.000000
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/memory_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/memory_phase.v|
+!i113 1
+R7
+R8
+vrf
+R11
+!i10b 1
+!s100 R`lOlLEZF3^OIhXOBP=]]2
+R1
+InLU3P?2fOaabU^jR_X0Ne2
+R2
+R3
+R9
+8C:/Users/ITAUser/Final_552_Project/Project_3/rf.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/rf.v
+!i122 68
+L0 8 58
+R5
+r1
+!s85 0
+31
+R12
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/rf.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/rf.v|
+!i113 1
+R7
+R8
+vwriteback_phase
+R11
+!i10b 1
+!s100 K02WW^Dbm9:0FlBl`SQin0
+R1
+IQW9QjDJ2k2ba20<f2KlP83
+R2
+R3
+R4
+8C:/Users/ITAUser/Final_552_Project/Project_3/writeback_phase.v
+FC:/Users/ITAUser/Final_552_Project/Project_3/writeback_phase.v
+!i122 69
+L0 1 14
+R5
+r1
+!s85 0
+31
+R12
+!s107 C:/Users/ITAUser/Final_552_Project/Project_3/writeback_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/Project_3/writeback_phase.v|
+!i113 1
+R7
+R8

@@ -1,0 +1,57 @@
+C:/Users/ITAUser/Final_552_Project/project3_starter_files/tb/tb.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/project3_starter_files/tb/tb.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module hart_tb
+
+Top level modules:
+	hart_tb
+
+} {} {}} C:/Users/ITAUser/Final_552_Project/Project_3/alu.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/Project_3/alu.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module alu
+
+Top level modules:
+	alu
+
+} {} {}} C:/Users/ITAUser/Final_552_Project/Project_3/execute_phase.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/Project_3/execute_phase.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module execute_phase
+
+Top level modules:
+	execute_phase
+
+} {} {}} C:/Users/ITAUser/Final_552_Project/Project_3/hart.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/Project_3/hart.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module hart
+
+Top level modules:
+	hart
+
+} {} {}} C:/Users/ITAUser/Final_552_Project/Project_3/imm.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/Project_3/imm.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module imm
+
+Top level modules:
+	imm
+
+} {} {}} C:/Users/ITAUser/Final_552_Project/Project_3/decode_phase.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/Project_3/decode_phase.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module decode
+
+Top level modules:
+	decode
+
+} {} {}} C:/Users/ITAUser/Final_552_Project/Project_3/writeback_phase.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/Project_3/writeback_phase.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module writeback_phase
+
+Top level modules:
+	writeback_phase
+
+} {} {}} C:/Users/ITAUser/Final_552_Project/Project_3/rf.v {1 {vlog -work work -stats=none C:/Users/ITAUser/Final_552_Project/Project_3/rf.v
+Model Technology ModelSim - Intel FPGA Edition vlog 2020.1 Compiler 2020.02 Feb 28 2020
+-- Compiling module rf
+
+Top level modules:
+	rf
+
+} {} {}}

@@ -133,6 +133,7 @@ module hart #(
     /////////////////////////////////////
     // PC/Instruction Fetch Phase
     /////////////////////////////////////
+    wire stall;
     reg  [31:0] pc_reg;
     wire [31:0] pc_next;
     wire [31:0] instruction;
@@ -170,6 +171,7 @@ module hart #(
                    | (EXtoMEM.i_rd_wen & ((EXtoMEM.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (EXtoMEM.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])))
                    | (IDtoEX.i_rd_wen & ((IDtoEX.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (IDtoEX.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])));
 
+    
     /////////////////////////////////////
     // Decode Phase
     /////////////////////////////////////
@@ -217,6 +219,7 @@ module hart #(
     IDtoEX IDtoEX (
         .clk(clk),
         .rst(rst),
+        .stall(stall),
         .i_pc(pc_reg),
         .i_pc_plus_4(pc_plus_4),
         .jalr(jalr),
@@ -353,7 +356,7 @@ module hart #(
         .o_pc_plus_4_pipeline(pc_plus_4),
         .o_dmem_rdata_pipeline(i_dmem_rdata),
         .o_rd_dest_select_pipeline(rd_dest_select),
-        .i_rd_wen_pipeline(i_rd_wen)
+        
     );
 
     /////////////////////////////////////

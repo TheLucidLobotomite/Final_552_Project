@@ -1,6 +1,7 @@
 module IDtoEX (
     input wire clk,
     input wire rst,
+    input wire stall,
     input wire [31:0] i_pc_plus_4,
     input wire [31:0] i_pc,
     input wire jalr,
@@ -49,6 +50,28 @@ module IDtoEX (
 
 always @(posedge clk) begin
     if (rst) begin
+        o_pc_plus_4_pipeline <= 32'b0;
+        jalr_pipeline <= 1'b0;
+        jump_pipeline <= 1'b0;
+        branch_pipeline <= 1'b0;
+        branch_type_pipeline <= 3'b000;
+        rd_dest_select_pipeline <= 2'b00;
+        store_sel_pipeline <= 3'b000;
+        load_sel_pipeline <= 3'b000;
+        o_dmem_ren_pipeline <= 1'b0;
+        o_dmem_wen_pipeline <= 1'b0;
+        i_opsel_pipeline <= 3'b000;
+        i_arith_pipeline <= 1'b0;
+        i_unsigned_pipeline <= 1'b0;
+        i_sub_pipeline <= 1'b0;
+        auipc_pipeline <= 1'b0;
+        i_alu_src_pipeline <= 1'b0;
+        o_immediate_pipeline <= 32'b0;
+        o_rs1_data_pipeline <= 32'b0;
+        o_rs2_data_pipeline <= 32'b0;
+        o_pc_pipeline <= 32'b0;
+        i_rd_wen_pipeline <= 1'b0;
+    end else if (stall) begin
         o_pc_plus_4_pipeline <= 32'b0;
         jalr_pipeline <= 1'b0;
         jump_pipeline <= 1'b0;

@@ -237,6 +237,7 @@ module hart #(
         .i_unsigned(i_unsigned),
         .i_sub(i_sub),
         .auipc(auipc),
+        .i_imem_rdata(i_imem_rdata),
         .i_alu_src(i_alu_src),
         .o_immediate(o_immediate),
         .o_rs1_data(o_rs1_rdata),
@@ -261,7 +262,8 @@ module hart #(
         .o_rs1_data_pipeline(o_rs1_rdata), 
         .o_rs2_data_pipeline(o_rs2_rdata),
         .o_pc_pipeline(pc_reg),
-        .i_rd_wen_pipeline(i_rd_wen)
+        .i_rd_wen_pipeline(i_rd_wen),
+        .o_imem_rdata_pipeline(i_imem_rdata)
     );
 
 
@@ -299,10 +301,11 @@ module hart #(
         .rd_dest_select(rd_dest_select),
         .store_sel(store_sel),
         .load_sel(load_sel),
-        .o_dmem_ren(dmem_ren),
-        .o_dmem_we(dmem_wen),
+        .o_dmem_ren(o_dmem_ren),
+        .o_dmem_wen(o_dmem_wen),
         .i_rd_wen(i_rd_wen),
         .i_alu_result(alu_result),
+        .i_imem_rdata(i_imem_rdata),
         .o_immediate(o_immediate),
         .pc_plus_4(pc_plus_4),
         .o_rs2_data(o_rs2_rdata),
@@ -315,7 +318,8 @@ module hart #(
         .o_immediate_pipeline(o_immediate),
         .o_pc_plus_4_pipeline(pc_plus_4),
         .o_rs2_data_pipeline(o_rs2_rdata),
-        .i_rd_wen_pipeline(i_rd_wen)
+        .i_rd_wen_pipeline(i_rd_wen),
+        .o_imem_rdata_pipeline(i_imem_rdata)
     );
 
     /////////////////////////////////////
@@ -349,13 +353,14 @@ module hart #(
         .i_alu_result(alu_result),
         .o_immediate(o_immediate),
         .pc_plus_4(pc_plus_4),
-        .i_dmem_rdata(i_dmem_rdata),
+        .i_imem_rdata(i_imem_rdata),
         .i_rd_wen(i_rd_wen),
         .o_alu_result_pipeline(alu_result),
         .o_immediate_pipeline(o_immediate),
         .o_pc_plus_4_pipeline(pc_plus_4),
-        .o_dmem_rdata_pipeline(i_dmem_rdata),
-        .o_rd_dest_select_pipeline(rd_dest_select)
+        .o_imem_rdata_pipeline(i_imem_rdata),
+        .o_rd_dest_select_pipeline(rd_dest_select),
+        .i_rd_wen_pipeline(i_rd_wen)
     );
 
     /////////////////////////////////////

@@ -7,6 +7,7 @@ module id_to_ex (
     input wire jalr,
     input wire jump,
     input wire branch,
+    input wire [31:0] i_imem_rdata,
     input wire [2:0] branch_type,
     input wire [1:0] rd_dest_select,
     input wire [2:0] store_sel,
@@ -43,8 +44,9 @@ module id_to_ex (
     output reg [31:0] o_rs1_data_pipeline,
     output reg [31:0] o_rs2_data_pipeline,
     output reg [31:0] o_pc_pipeline,
-    output reg i_rd_wen_pipeline
-
+    output reg i_rd_wen_pipeline,
+    output reg [31:0] o_imem_rdata_pipeline
+    
 );
 
 
@@ -71,6 +73,7 @@ always @(posedge clk) begin
         o_rs2_data_pipeline <= 32'b0;
         o_pc_pipeline <= 32'b0;
         i_rd_wen_pipeline <= 1'b0;
+        o_imem_rdata_pipeline <= 32'b0;
     end else if (stall) begin
         o_pc_plus_4_pipeline <= 32'b0;
         jalr_pipeline <= 1'b0;
@@ -93,6 +96,7 @@ always @(posedge clk) begin
         o_rs2_data_pipeline <= 32'b0;
         o_pc_pipeline <= 32'b0;
         i_rd_wen_pipeline <= 1'b0;
+        o_imem_rdata_pipeline <= 32'b0;
     end else begin
         o_pc_plus_4_pipeline <= i_pc_plus_4;
         o_pc_pipeline <= i_pc;
@@ -115,7 +119,7 @@ always @(posedge clk) begin
         o_rs1_data_pipeline <= o_rs1_data;
         o_rs2_data_pipeline <= o_rs2_data;
         i_rd_wen_pipeline <= i_rd_wen;
-
+        o_imem_rdata_pipeline <= i_imem_rdata;
     end
 end
 

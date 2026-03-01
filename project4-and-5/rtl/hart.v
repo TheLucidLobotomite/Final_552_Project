@@ -167,9 +167,9 @@ module hart #(
     /////////////////////////////////////
     // Hazard Detection
     /////////////////////////////////////
-    assign stall = (mem_to_w.i_rd_wen & ((mem_to_w.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[19:15]) | (mem_to_w.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[24:20])))
-                   | (ex_to_mem.i_rd_wen & ((ex_to_mem.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[19:15]) | (ex_to_mem.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[24:20])))
-                   | (id_to_ex.i_rd_wen & ((id_to_ex.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[19:15]) | (id_to_ex.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[24:20])));
+    assign stall = (iDUT_mem_to_w.i_rd_wen & ((iDUT_mem_to_w.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[19:15]) | (iDUT_mem_to_w.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[24:20])))
+                   | (iDUT_ex_to_mem.i_rd_wen & ((iDUT_ex_to_mem.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[19:15]) | (iDUT_ex_to_mem.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[24:20])))
+                   | (iDUT_id_to_ex.i_rd_wen & ((iDUT_id_to_ex.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[19:15]) | (iDUT_id_to_ex.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[24:20])));
 
     
     /////////////////////////////////////

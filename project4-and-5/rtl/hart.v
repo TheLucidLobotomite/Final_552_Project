@@ -156,9 +156,11 @@ module hart #(
         .clk(clk),
         .rst(rst),
         .i_pc(pc_reg),
+        .i_pc_plus_4(pc_plus_4),
         .i_imem_rdata(instruction),
         .o_pc(pc_reg), 
-        .o_imem_rdata(instruction)
+        .o_imem_rdata(instruction),
+        .o_pc_plus_4(pc_plus_4)
     ); 
 
     /////////////////////////////////////
@@ -215,6 +217,7 @@ module hart #(
     IDtoEX IDtoEX (
         .clk(clk),
         .rst(rst),
+        .i_pc(pc_reg),
         .i_pc_plus_4(pc_plus_4),
         .jalr(jalr),
         .jump(jump),
@@ -252,7 +255,8 @@ module hart #(
         .i_alu_src_pipeline(i_alu_src), 
         .o_immediate_pipeline(o_immediate), 
         .o_rs1_data_pipeline(o_rs1_rdata), 
-        .o_rs2_data_pipeline(o_rs2_rdata)
+        .o_rs2_data_pipeline(o_rs2_rdata),
+        .o_pc_pipeline(pc_reg)
     );
 
 

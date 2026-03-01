@@ -162,6 +162,13 @@ module hart #(
     ); 
 
     /////////////////////////////////////
+    // Hazard Detection
+    /////////////////////////////////////
+    assign stall = (MEMtoW.i_rd_wen & ((MEMtoW.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (MEMtoW.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])))
+                   | (EXtoMEM.i_rd_wen & ((EXtoMEM.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (EXtoMEM.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])))
+                   | (IDtoEX.i_rd_wen & ((IDtoEX.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (IDtoEX.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])));
+
+    /////////////////////////////////////
     // Decode Phase
     /////////////////////////////////////
     wire [31:0] o_rs1_rdata, o_rs2_rdata, o_immediate;

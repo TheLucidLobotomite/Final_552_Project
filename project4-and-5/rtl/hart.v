@@ -222,6 +222,7 @@ module hart #(
         .jalr(jalr),
         .jump(jump),
         .branch(branch),
+        .i_rd_wen(i_rd_wen),
         .branch_type(branch_type),
         .rd_dest_select(rd_dest_select),
         .store_sel(store_sel),
@@ -256,7 +257,8 @@ module hart #(
         .o_immediate_pipeline(o_immediate), 
         .o_rs1_data_pipeline(o_rs1_rdata), 
         .o_rs2_data_pipeline(o_rs2_rdata),
-        .o_pc_pipeline(pc_reg)
+        .o_pc_pipeline(pc_reg),
+        .i_rd_wen_pipeline(i_rd_wen)
     );
 
 
@@ -296,6 +298,7 @@ module hart #(
         .load_sel(load_sel),
         .o_dmem_ren(dmem_ren),
         .o_dmem_we(dmem_wen),
+        .i_rd_wen(i_rd_wen),
         .i_alu_result(alu_result),
         .o_immediate(o_immediate),
         .pc_plus_4(pc_plus_4),
@@ -308,7 +311,8 @@ module hart #(
         .o_alu_result_pipeline(alu_result),
         .o_immediate_pipeline(o_immediate),
         .o_pc_plus_4_pipeline(pc_plus_4),
-        .o_rs2_data_pipeline(o_rs2_rdata)
+        .o_rs2_data_pipeline(o_rs2_rdata),
+        .i_rd_wen_pipeline(i_rd_wen)
     );
 
     /////////////////////////////////////
@@ -343,11 +347,13 @@ module hart #(
         .o_immediate(o_immediate),
         .pc_plus_4(pc_plus_4),
         .i_dmem_rdata(i_dmem_rdata),
+        .i_rd_wen(i_rd_wen),
         .o_alu_result_pipeline(alu_result),
         .o_immediate_pipeline(o_immediate),
         .o_pc_plus_4_pipeline(pc_plus_4),
         .o_dmem_rdata_pipeline(i_dmem_rdata),
-        .o_rd_dest_select_pipeline(rd_dest_select)
+        .o_rd_dest_select_pipeline(rd_dest_select),
+        .i_rd_wen_pipeline(i_rd_wen)
     );
 
     /////////////////////////////////////

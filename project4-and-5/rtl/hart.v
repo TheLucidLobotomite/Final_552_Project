@@ -150,6 +150,18 @@ module hart #(
    
 
     /////////////////////////////////////
+    // Fetch-Decode Pipeline
+    /////////////////////////////////////
+    FtoID FtoID (
+        .clk(clk),
+        .rst(rst),
+        .i_pc(pc_reg),
+        .i_imem_rdata(instruction),
+        .o_pc(pc_reg), 
+        .o_imem_rdata(instruction)
+    ); 
+
+    /////////////////////////////////////
     // Decode Phase
     /////////////////////////////////////
     wire [31:0] o_rs1_rdata, o_rs2_rdata, o_immediate;
@@ -189,6 +201,54 @@ module hart #(
         .i_format           (i_format)
     );
 
+
+    /////////////////////////////////////
+    // Decode-Execute Pipeline
+    /////////////////////////////////////
+    IDtoEX IDtoEX (
+        .clk(clk),
+        .rst(rst),
+        .i_pc_plus_4(pc_plus_4),
+        .jalr(jalr),
+        .jump(jump),
+        .branch(branch),
+        .branch_type(branch_type),
+        .rd_dest_select(rd_dest_select),
+        .store_sel(store_sel),
+        .load_sel(load_sel),
+        .o_dmem_ren(dmem_ren),
+        .o_dmem_wen(dmem_wen),
+        .i_opsel(i_opsel),
+        .i_arith(i_arith),
+        .i_unsigned(i_unsigned),
+        .i_sub(i_sub),
+        .auipc(auipc),
+        .i_alu_src(i_alu_src),
+        .o_immediate(o_immediate),
+        .o_rs1_data(o_rs1_rdata),
+        .o_rs2_data(o_rs2_rdata),
+        .o_pc_plus_4_pipeline(pc_plus_4), 
+        .jalr_pipeline(jalr), 
+        .jump_pipeline(jump), 
+        .branch_pipeline(branch), 
+        .branch_type_pipeline(branch_type), 
+        .rd_dest_select_pipeline(rd_dest_select), 
+        .store_sel_pipeline(store_sel), 
+        .load_sel_pipeline(load_sel), 
+        .o_dmem_ren_pipeline(dmem_ren), 
+        .o_dmem_wen_pipeline(dmem_wen), 
+        .i_opsel_pipeline(i_opsel), 
+        .i_arith_pipeline(i_arith), 
+        .i_unsigned_pipeline(i_unsigned), 
+        .i_sub_pipeline(i_sub), 
+        .auipc_pipeline(auipc), 
+        .i_alu_src_pipeline(i_alu_src), 
+        .o_immediate_pipeline(o_immediate), 
+        .o_rs1_data_pipeline(o_rs1_rdata), 
+        .o_rs2_data_pipeline(o_rs2_rdata)
+    );
+
+
     /////////////////////////////////////
     // Execute Phase
     /////////////////////////////////////
@@ -213,6 +273,33 @@ module hart #(
         .o_result           (alu_result)
     );
 
+
+    /////////////////////////////////////
+    // Execute-Memory Pipeline
+    /////////////////////////////////////
+    EXtoMEM EXtoMEM (
+        .clk(clk),
+        .rst(rst),
+        .rd_dest_select(rd_dest_select),
+        .store_sel(store_sel),
+        .load_sel(load_sel),
+        .o_dmem_ren(dmem_ren),
+        .o_dmem_we(dmem_wen),
+        .i_alu_result(alu_result),
+        .o_immediate(o_immediate),
+        .pc_plus_4(pc_plus_4),
+        .o_rs2_data(o_rs2_rdata),
+        .o_rd_dest_select_pipeline(rd_dest_select),
+        .o_store_sel_pipeline(store_sel),
+        .o_load_sel_pipeline(load_sel),
+        .o_dmem_ren_pipeline(dmem_ren),
+        .o_dmem_wen_pipeline(dmem_wen),
+        .o_alu_result_pipeline(alu_result),
+        .o_immediate_pipeline(o_immediate),
+        .o_pc_plus_4_pipeline(pc_plus_4),
+        .o_rs2_data_pipeline(o_rs2_rdata)
+    );
+
     /////////////////////////////////////
     // Memory Phase
     /////////////////////////////////////
@@ -232,6 +319,24 @@ module hart #(
         .o_dmem_wdata       (o_dmem_wdata),
         .o_dmem_mask        (o_dmem_mask),
         .load_mux_out       (load_mux_out)
+    );
+
+    /////////////////////////////////////
+    // Memory-Execute Pipeline
+    /////////////////////////////////////
+    MEMtoW MEMtoW (
+        .clk(clk),
+        .rst(rst),
+        .rd_dest_select(rd_dest_select),
+        .i_alu_result(alu_result),
+        .o_immediate(o_immediate),
+        .pc_plus_4(pc_plus_4),
+        .i_dmem_rdata(i_dmem_rdata),
+        .o_alu_result_pipeline(alu_result),
+        .o_immediate_pipeline(o_immediate),
+        .o_pc_plus_4_pipeline(pc_plus_4),
+        .o_dmem_rdata_pipeline(i_dmem_rdata),
+        .o_rd_dest_select_pipeline(rd_dest_select)
     );
 
     /////////////////////////////////////

@@ -10,8 +10,8 @@ module MEMtoW(
     output reg [31:0] o_alu_result_pipeline,
     output reg [31:0] o_immediate_pipeline,
     output reg [31:0] o_pc_plus_4_pipeline,
-    output reg [31:0] o_dmem_rdata_pipeline
-    output reg [1:0] o_rd_dest_select_pipeline
+    output reg [31:0] o_dmem_rdata_pipeline,
+    output reg [1:0] o_rd_dest_select_pipeline,
     output reg i_rd_wen_pipeline
 );
 

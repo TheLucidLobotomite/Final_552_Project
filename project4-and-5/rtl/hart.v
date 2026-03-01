@@ -355,8 +355,7 @@ module hart #(
         .o_immediate_pipeline(o_immediate),
         .o_pc_plus_4_pipeline(pc_plus_4),
         .o_dmem_rdata_pipeline(i_dmem_rdata),
-        .o_rd_dest_select_pipeline(rd_dest_select),
-        
+        .o_rd_dest_select_pipeline(rd_dest_select)
     );
 
     /////////////////////////////////////

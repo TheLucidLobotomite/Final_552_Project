@@ -1,7 +1,7 @@
 module ExtoMEM(
     input wire clk,
     input wire rst,
-    input wire [1:0] rd_dest_select;
+    input wire [1:0] rd_dest_select,
     input wire [2:0] store_sel,
     input wire [2:0] load_sel,
     input wire o_dmem_ren,

@@ -41,7 +41,7 @@ module IDtoEX (
     output reg i_alu_src_pipeline,
     output reg [31:0] o_immediate_pipeline,
     output reg [31:0] o_rs1_data_pipeline,
-    output reg [31:0] o_rs2_data_pipeline
+    output reg [31:0] o_rs2_data_pipeline,
     output reg [31:0] o_pc_pipeline,
     output reg i_rd_wen_pipeline
 

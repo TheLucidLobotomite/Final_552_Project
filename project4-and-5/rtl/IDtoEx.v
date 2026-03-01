@@ -18,6 +18,7 @@ module IDtoEX (
     input wire i_sub,
     input wire auipc,
     input wire i_alu_src,
+    input wire i_rd_wen,
     input wire [31:0] o_immediate,
     input wire [31:0] o_rs1_data,
     input wire [31:0] o_rs2_data,
@@ -40,7 +41,8 @@ module IDtoEX (
     output reg [31:0] o_immediate_pipeline,
     output reg [31:0] o_rs1_data_pipeline,
     output reg [31:0] o_rs2_data_pipeline
-    output reg [31:0] o_pc_pipeline
+    output reg [31:0] o_pc_pipeline,
+    output reg i_rd_wen_pipeline
 
 );
 
@@ -67,6 +69,7 @@ always @(posedge clk) begin
         o_rs1_data_pipeline <= 32'b0;
         o_rs2_data_pipeline <= 32'b0;
         o_pc_pipeline <= 32'b0;
+        i_rd_wen_pipeline <= 1'b0;
     end else begin
         o_pc_plus_4_pipeline <= i_pc_plus_4;
         o_pc_pipeline <= i_pc;
@@ -88,6 +91,7 @@ always @(posedge clk) begin
         o_immediate_pipeline <= o_immediate;
         o_rs1_data_pipeline <= o_rs1_data;
         o_rs2_data_pipeline <= o_rs2_data;
+        i_rd_wen_pipeline <= i_rd_wen;
 
     end
 end

@@ -10,6 +10,7 @@ module ExtoMEM(
     input wire [31:0] o_immediate,
     input wire [31:0] pc_plus_4,
     input wire [31:0] o_rs2_data,
+    input wire i_rd_wen,
     output reg [1:0] o_rd_dest_select_pipeline,
     output reg [2:0] o_store_sel_pipeline,
     output reg [2:0] o_load_sel_pipeline,
@@ -18,7 +19,8 @@ module ExtoMEM(
     output reg [31:0] o_alu_result_pipeline,
     output reg [31:0] o_immediate_pipeline,
     output reg [31:0] o_pc_plus_4_pipeline,
-    output reg [31:0] o_rs2_data_pipeline
+    output reg [31:0] o_rs2_data_pipeline,
+    output reg i_rd_wen_pipeline
     
 );
 
@@ -33,6 +35,7 @@ always @(posedge clk) begin
         o_immediate_pipeline <= 32'b0;
         o_pc_plus_4_pipeline <= 32'b0;
         o_rs2_data_pipeline <= 32'b0;
+        i_rd_wen_pipeline <= 1'b0;
     end else begin
         o_rd_dest_select_pipeline <= rd_dest_select;
         o_store_sel_pipeline <= store_sel;
@@ -43,6 +46,7 @@ always @(posedge clk) begin
         o_immediate_pipeline <= o_immediate;
         o_pc_plus_4_pipeline <= pc_plus_4;
         o_rs2_data_pipeline <= o_rs2_data;
+        i_rd_wen_pipeline <= i_rd_wen;
     end
 end
 

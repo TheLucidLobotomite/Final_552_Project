@@ -153,7 +153,7 @@ module hart #(
     /////////////////////////////////////
     // Fetch-Decode Pipeline
     /////////////////////////////////////
-    FtoID FtoID (
+    f_to_id iDUT_f_to_id (
         .clk(clk),
         .rst(rst),
         .i_pc(pc_reg),
@@ -167,9 +167,9 @@ module hart #(
     /////////////////////////////////////
     // Hazard Detection
     /////////////////////////////////////
-    assign stall = (MEMtoW.i_rd_wen & ((MEMtoW.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (MEMtoW.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])))
-                   | (EXtoMEM.i_rd_wen & ((EXtoMEM.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (EXtoMEM.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])))
-                   | (IDtoEX.i_rd_wen & ((IDtoEX.i_imem_rdata[11:7] == FtoID.i_imem_rdata[19:15]) | (IDtoEX.i_imem_rdata[11:7] == FtoID.i_imem_rdata[24:20])));
+    assign stall = (mem_to_w.i_rd_wen & ((mem_to_w.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[19:15]) | (mem_to_w.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[24:20])))
+                   | (ex_to_mem.i_rd_wen & ((ex_to_mem.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[19:15]) | (ex_to_mem.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[24:20])))
+                   | (id_to_ex.i_rd_wen & ((id_to_ex.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[19:15]) | (id_to_ex.i_imem_rdata[11:7] == f_to_id.i_imem_rdata[24:20])));
 
     
     /////////////////////////////////////
@@ -216,7 +216,7 @@ module hart #(
     /////////////////////////////////////
     // Decode-Execute Pipeline
     /////////////////////////////////////
-    IDtoEX IDtoEX (
+    id_to_ex iDUT_id_to_ex (
         .clk(clk),
         .rst(rst),
         .stall(stall),
@@ -293,7 +293,7 @@ module hart #(
     /////////////////////////////////////
     // Execute-Memory Pipeline
     /////////////////////////////////////
-    EXtoMEM EXtoMEM (
+    ex_to_mem iDUT_ex_to_mem (
         .clk(clk),
         .rst(rst),
         .rd_dest_select(rd_dest_select),
@@ -342,7 +342,7 @@ module hart #(
     /////////////////////////////////////
     // Memory-Execute Pipeline
     /////////////////////////////////////
-    MEMtoW MEMtoW (
+    mem_to_w iDUT_mem_to_w (
         .clk(clk),
         .rst(rst),
         .rd_dest_select(rd_dest_select),

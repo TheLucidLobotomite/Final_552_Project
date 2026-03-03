@@ -124,7 +124,13 @@ module hart #(
     // the next program counter after the instruction is retired. For most
     // instructions, this is `o_retire_pc + 4`, but must be the branch or jump
     // target for *taken* branches and jumps.
-    output wire [31:0] o_retire_next_pc
+    output wire [31:0] o_retire_next_pc,
+    output wire [31:0] o_retire_dmem_addr,
+    output wire        o_retire_dmem_ren,
+    output wire        o_retire_dmem_wen,
+    output wire [ 3:0] o_retire_dmem_mask,
+    output wire [31:0] o_retire_dmem_wdata,
+    output wire [31:0] o_retire_dmem_rdata
 
 `ifdef RISCV_FORMAL
     ,`RVFI_OUTPUTS,
@@ -133,10 +139,20 @@ module hart #(
     /////////////////////////////////////
     // PC/Instruction Fetch Phase
     /////////////////////////////////////
+    // Retire-stage memory interface (sampled by testbench when o_retire_valid is high)
+    assign o_retire_dmem_addr  = o_dmem_addr;
+    assign o_retire_dmem_ren   = o_dmem_ren;
+    assign o_retire_dmem_wen   = o_dmem_wen;
+    assign o_retire_dmem_mask  = o_dmem_mask;
+    assign o_retire_dmem_wdata = o_dmem_wdata;
+    assign o_retire_dmem_rdata = i_dmem_rdata;
     wire stall;
     reg  [31:0] pc_reg;
+    wire [31:0] pc_id; 
+    wire [31:0] pc_ex;
     wire [31:0] pc_next;
     wire [31:0] instruction;
+    wire [31:0] inst_f, inst_d, inst_e, inst_m, inst_w;
     wire [31:0] pc_plus_4 = pc_reg + 32'd4; //added in order to pipeline throughout
     
     assign o_imem_raddr = pc_reg;
@@ -154,12 +170,12 @@ module hart #(
     // Fetch-Decode Pipeline
     /////////////////////////////////////
     f_to_id iDUT_f_to_id (
-        .clk(clk),
-        .rst(rst),
+        .clk(i_clk),
+        .rst(i_rst),
         .i_pc(pc_reg),
         .i_pc_plus_4(pc_plus_4),
         .i_imem_rdata(instruction),
-        .o_pc(pc_reg), 
+        .o_pc(pc_id), 
         .o_imem_rdata(instruction),
         .o_pc_plus_4(pc_plus_4)
     ); 
@@ -217,10 +233,10 @@ module hart #(
     // Decode-Execute Pipeline
     /////////////////////////////////////
     id_to_ex iDUT_id_to_ex (
-        .clk(clk),
-        .rst(rst),
+        .clk(i_clk),
+        .rst(i_rst),
         .stall(stall),
-        .i_pc(pc_reg),
+        .i_pc(pc_id),
         .i_pc_plus_4(pc_plus_4),
         .jalr(jalr),
         .jump(jump),
@@ -261,7 +277,7 @@ module hart #(
         .o_immediate_pipeline(o_immediate), 
         .o_rs1_data_pipeline(o_rs1_rdata), 
         .o_rs2_data_pipeline(o_rs2_rdata),
-        .o_pc_pipeline(pc_reg),
+        .o_pc_pipeline(pc_ex),
         .i_rd_wen_pipeline(i_rd_wen),
         .o_imem_rdata_pipeline(i_imem_rdata)
     );
@@ -296,8 +312,8 @@ module hart #(
     // Execute-Memory Pipeline
     /////////////////////////////////////
     ex_to_mem iDUT_ex_to_mem (
-        .clk(clk),
-        .rst(rst),
+        .clk(i_clk),
+        .rst(i_rst),
         .rd_dest_select(rd_dest_select),
         .store_sel(store_sel),
         .load_sel(load_sel),
@@ -347,8 +363,8 @@ module hart #(
     // Memory-Execute Pipeline
     /////////////////////////////////////
     mem_to_w iDUT_mem_to_w (
-        .clk(clk),
-        .rst(rst),
+        .clk(i_clk),
+        .rst(i_rst),
         .rd_dest_select(rd_dest_select),
         .i_alu_result(alu_result),
         .o_immediate(o_immediate),

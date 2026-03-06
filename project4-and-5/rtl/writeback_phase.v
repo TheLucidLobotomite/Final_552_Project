@@ -1,3 +1,6 @@
+`timescale 1ns / 1ps
+`default_nettype none
+
 module writeback_phase (
     input  wire [ 1:0] rd_dest_select,
     input  wire [31:0] alu_result,

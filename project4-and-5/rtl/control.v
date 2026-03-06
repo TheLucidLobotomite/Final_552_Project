@@ -1,3 +1,6 @@
+`timescale 1ns / 1ps
+`default_nettype none
+
 module control (
     input  wire [31:0] i_imem_rdata,
     output reg jump,

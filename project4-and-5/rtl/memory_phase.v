@@ -1,3 +1,6 @@
+`timescale 1ns / 1ps
+`default_nettype none
+
 module memory_phase (
     input  wire [31:0] alu_result,
     input  wire [2:0]  load_sel,

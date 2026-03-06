@@ -1,3 +1,6 @@
+`timescale 1ns / 1ps
+`default_nettype none
+
 module hart #(
     // After reset, the program counter (PC) should be initialized to this
     // address and start executing instructions from there.
@@ -139,204 +142,296 @@ module hart #(
     /////////////////////////////////////
     // PC/Instruction Fetch Phase
     /////////////////////////////////////
-    // Retire-stage memory interface (sampled by testbench when o_retire_valid is high)
     assign o_retire_dmem_addr  = o_dmem_addr;
     assign o_retire_dmem_ren   = o_dmem_ren;
     assign o_retire_dmem_wen   = o_dmem_wen;
     assign o_retire_dmem_mask  = o_dmem_mask;
     assign o_retire_dmem_wdata = o_dmem_wdata;
     assign o_retire_dmem_rdata = i_dmem_rdata;
+
     wire stall;
     reg  [31:0] pc_reg;
-    wire [31:0] pc_id; 
-    wire [31:0] pc_ex;
     wire [31:0] pc_next;
-    wire [31:0] instruction;
-    wire [31:0] inst_f, inst_d, inst_e, inst_m, inst_w;
-    wire [31:0] pc_plus_4 = pc_reg + 32'd4; //added in order to pipeline throughout
-    
+    wire [31:0] pc_plus_4 = pc_reg + 32'd4;
+
     assign o_imem_raddr = pc_reg;
-    assign instruction = i_imem_rdata;
 
     always @(posedge i_clk) begin
         if (i_rst)
             pc_reg <= RESET_ADDR;
-        else
+        else if (!stall)
             pc_reg <= pc_next;
+        else
+            pc_reg <= pc_reg;
     end
-   
 
     /////////////////////////////////////
     // Fetch-Decode Pipeline
     /////////////////////////////////////
-    f_to_id iDUT_f_to_id (
-        .clk(i_clk),
-        .rst(i_rst),
-        .i_pc(pc_reg),
-        .i_pc_plus_4(pc_plus_4),
-        .i_imem_rdata(instruction),
-        .o_pc(pc_id), 
-        .o_imem_rdata(instruction),
-        .o_pc_plus_4(pc_plus_4)
-    ); 
+    wire [31:0] if_id_pc_reg_in       = pc_reg;
+    wire [31:0] if_id_pc_plus_4_in    = pc_plus_4;
+    wire [31:0] if_id_i_imem_rdata_in = i_imem_rdata;
 
-    /////////////////////////////////////
-    // Hazard Detection
-    /////////////////////////////////////
-    assign stall = (iDUT_mem_to_w.i_rd_wen & ((iDUT_mem_to_w.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[19:15]) | (iDUT_mem_to_w.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[24:20])))
-                   | (iDUT_ex_to_mem.i_rd_wen & ((iDUT_ex_to_mem.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[19:15]) | (iDUT_ex_to_mem.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[24:20])))
-                   | (iDUT_id_to_ex.i_rd_wen & ((iDUT_id_to_ex.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[19:15]) | (iDUT_id_to_ex.i_imem_rdata[11:7] == iDUT_f_to_id.i_imem_rdata[24:20])));
+    reg  [31:0] if_id_pc_reg_out;
+    reg  [31:0] if_id_pc_plus_4_out;
+    reg  [31:0] if_id_i_imem_rdata_out;
 
-    
+    always @(posedge i_clk) begin
+        if (i_rst) begin
+            if_id_pc_reg_out       <= 32'b0;
+            if_id_pc_plus_4_out    <= 32'b0;
+            if_id_i_imem_rdata_out <= 32'b0;
+        end else if (!stall) begin
+            if_id_pc_reg_out       <= if_id_pc_reg_in;
+            if_id_pc_plus_4_out    <= if_id_pc_plus_4_in;
+            if_id_i_imem_rdata_out <= if_id_i_imem_rdata_in;
+        end
+    end
+
     /////////////////////////////////////
     // Decode Phase
     /////////////////////////////////////
-    wire [31:0] o_rs1_rdata, o_rs2_rdata, o_immediate;
+    // WB -> decode feedback wires (driven from WB stage)
+    wire [ 4:0] wb_rd_waddr;
+    wire [31:0] wb_rd_wdata;
+    wire        wb_rd_wen;
+
+    wire [31:0] o_rs1_rdata;
+    wire [31:0] o_rs2_rdata;
+    wire [31:0] o_immediate;
     wire        jump, jalr, branch;
-    wire [2:0]  branch_type, i_opsel;
-    wire [1:0]  rd_dest_select;
-    wire [2:0]  store_sel, load_sel;
+    wire [ 2:0] branch_type;
+    wire [ 1:0] rd_dest_select;
+    wire [ 2:0] store_sel;
+    wire [ 2:0] load_sel;
     wire        dmem_ren, dmem_wen;
-    wire        i_sub, i_unsigned, i_arith, auipc, i_alu_src, i_rd_wen;
-    wire [5:0]  i_format;
+    wire [ 2:0] i_opsel;
+    wire        i_arith, i_unsigned, i_sub;
+    wire        auipc, i_alu_src, i_rd_wen;
+    wire [ 5:0] i_format;
     wire [31:0] writeback_mux_out;
 
-    decode iDUT_decode (
-        .clk                (i_clk),
-        .rst                (i_rst),
-        .i_imem_rdata       (instruction),
-        .writeback_mux_out  (writeback_mux_out),
-        .o_rs1_data_in      (o_rs1_rdata),
-        .o_rs2_data_in      (o_rs2_rdata),
-        .o_immediate        (o_immediate),
-        .jump               (jump),
-        .jalr               (jalr),
-        .branch             (branch),
-        .branch_type        (branch_type),
-        .rd_dest_select     (rd_dest_select),
-        .store_sel          (store_sel),
-        .load_sel           (load_sel),
-        .o_dmem_ren         (dmem_ren),
-        .o_dmem_wen         (dmem_wen),
-        .i_opsel            (i_opsel),
-        .i_arith            (i_arith),
-        .i_unsigned         (i_unsigned),
-        .i_sub              (i_sub),
-        .auipc              (auipc),
-        .i_alu_src          (i_alu_src),
-        .i_rd_wen           (i_rd_wen),
-        .i_format           (i_format)
+    decode #(.BYPASS_EN(1)) iDUT_decode (
+        .clk            (i_clk),
+        .rst            (i_rst),
+        .i_imem_rdata   (if_id_i_imem_rdata_out),
+        .i_wb_rd_waddr  (wb_rd_waddr),
+        .i_wb_rd_wdata  (wb_rd_wdata),
+        .i_wb_rd_wen    (wb_rd_wen),
+        .o_rs1_data_in  (o_rs1_rdata),
+        .o_rs2_data_in  (o_rs2_rdata),
+        .o_immediate    (o_immediate),
+        .jump           (jump),
+        .jalr           (jalr),
+        .branch         (branch),
+        .branch_type    (branch_type),
+        .rd_dest_select (rd_dest_select),
+        .store_sel      (store_sel),
+        .load_sel       (load_sel),
+        .o_dmem_ren     (dmem_ren),
+        .o_dmem_wen     (dmem_wen),
+        .i_opsel        (i_opsel),
+        .i_arith        (i_arith),
+        .i_unsigned     (i_unsigned),
+        .i_sub          (i_sub),
+        .auipc          (auipc),
+        .i_alu_src      (i_alu_src),
+        .i_rd_wen       (i_rd_wen),
+        .i_format       (i_format)
     );
-
 
     /////////////////////////////////////
     // Decode-Execute Pipeline
     /////////////////////////////////////
-    id_to_ex iDUT_id_to_ex (
-        .clk(i_clk),
-        .rst(i_rst),
-        .stall(stall),
-        .i_pc(pc_id),
-        .i_pc_plus_4(pc_plus_4),
-        .jalr(jalr),
-        .jump(jump),
-        .branch(branch),
-        .i_rd_wen(i_rd_wen),
-        .branch_type(branch_type),
-        .rd_dest_select(rd_dest_select),
-        .store_sel(store_sel),
-        .load_sel(load_sel),
-        .o_dmem_ren(dmem_ren),
-        .o_dmem_wen(dmem_wen),
-        .i_opsel(i_opsel),
-        .i_arith(i_arith),
-        .i_unsigned(i_unsigned),
-        .i_sub(i_sub),
-        .auipc(auipc),
-        .i_imem_rdata(i_imem_rdata),
-        .i_alu_src(i_alu_src),
-        .o_immediate(o_immediate),
-        .o_rs1_data(o_rs1_rdata),
-        .o_rs2_data(o_rs2_rdata),
-        .o_pc_plus_4_pipeline(pc_plus_4), 
-        .jalr_pipeline(jalr), 
-        .jump_pipeline(jump), 
-        .branch_pipeline(branch), 
-        .branch_type_pipeline(branch_type), 
-        .rd_dest_select_pipeline(rd_dest_select), 
-        .store_sel_pipeline(store_sel), 
-        .load_sel_pipeline(load_sel), 
-        .o_dmem_ren_pipeline(dmem_ren), 
-        .o_dmem_wen_pipeline(dmem_wen), 
-        .i_opsel_pipeline(i_opsel), 
-        .i_arith_pipeline(i_arith), 
-        .i_unsigned_pipeline(i_unsigned), 
-        .i_sub_pipeline(i_sub), 
-        .auipc_pipeline(auipc), 
-        .i_alu_src_pipeline(i_alu_src), 
-        .o_immediate_pipeline(o_immediate), 
-        .o_rs1_data_pipeline(o_rs1_rdata), 
-        .o_rs2_data_pipeline(o_rs2_rdata),
-        .o_pc_pipeline(pc_ex),
-        .i_rd_wen_pipeline(i_rd_wen),
-        .o_imem_rdata_pipeline(i_imem_rdata)
-    );
+    wire [31:0] id_ex_pc_reg_in          = if_id_pc_reg_out;
+    wire [31:0] id_ex_pc_plus_4_in       = if_id_pc_plus_4_out;
+    wire [31:0] id_ex_i_imem_rdata_in    = if_id_i_imem_rdata_out;
+    wire [31:0] id_ex_o_rs1_rdata_in     = o_rs1_rdata;
+    wire [31:0] id_ex_o_rs2_rdata_in     = o_rs2_rdata;
+    wire [31:0] id_ex_o_immediate_in     = o_immediate;
+    wire        id_ex_jump_in            = jump;
+    wire        id_ex_jalr_in            = jalr;
+    wire        id_ex_branch_in          = branch;
+    wire [ 2:0] id_ex_branch_type_in     = branch_type;
+    wire [ 1:0] id_ex_rd_dest_select_in  = rd_dest_select;
+    wire [ 2:0] id_ex_store_sel_in       = store_sel;
+    wire [ 2:0] id_ex_load_sel_in        = load_sel;
+    wire        id_ex_dmem_ren_in        = dmem_ren;
+    wire        id_ex_dmem_wen_in        = dmem_wen;
+    wire [ 2:0] id_ex_i_opsel_in         = i_opsel;
+    wire        id_ex_i_arith_in         = i_arith;
+    wire        id_ex_i_unsigned_in      = i_unsigned;
+    wire        id_ex_i_sub_in           = i_sub;
+    wire        id_ex_auipc_in           = auipc;
+    wire        id_ex_i_alu_src_in       = i_alu_src;
+    wire        id_ex_i_rd_wen_in        = i_rd_wen;
 
+    reg  [31:0] id_ex_pc_reg_out;
+    reg  [31:0] id_ex_pc_plus_4_out;
+    reg  [31:0] id_ex_i_imem_rdata_out;
+    reg  [31:0] id_ex_o_rs1_rdata_out;
+    reg  [31:0] id_ex_o_rs2_rdata_out;
+    reg  [31:0] id_ex_o_immediate_out;
+    reg         id_ex_jump_out;
+    reg         id_ex_jalr_out;
+    reg         id_ex_branch_out;
+    reg  [ 2:0] id_ex_branch_type_out;
+    reg  [ 1:0] id_ex_rd_dest_select_out;
+    reg  [ 2:0] id_ex_store_sel_out;
+    reg  [ 2:0] id_ex_load_sel_out;
+    reg         id_ex_dmem_ren_out;
+    reg         id_ex_dmem_wen_out;
+    reg  [ 2:0] id_ex_i_opsel_out;
+    reg         id_ex_i_arith_out;
+    reg         id_ex_i_unsigned_out;
+    reg         id_ex_i_sub_out;
+    reg         id_ex_auipc_out;
+    reg         id_ex_i_alu_src_out;
+    reg         id_ex_i_rd_wen_out;
+    reg         id_ex_valid_out;
+
+    always @(posedge i_clk) begin
+        if (i_rst | stall) begin
+            id_ex_pc_reg_out          <= 32'b0;
+            id_ex_pc_plus_4_out       <= 32'b0;
+            id_ex_i_imem_rdata_out    <= 32'b0;
+            id_ex_o_rs1_rdata_out     <= 32'b0;
+            id_ex_o_rs2_rdata_out     <= 32'b0;
+            id_ex_o_immediate_out     <= 32'b0;
+            id_ex_jump_out            <= 1'b0;
+            id_ex_jalr_out            <= 1'b0;
+            id_ex_branch_out          <= 1'b0;
+            id_ex_branch_type_out     <= 3'b0;
+            id_ex_rd_dest_select_out  <= 2'b0;
+            id_ex_store_sel_out       <= 3'b0;
+            id_ex_load_sel_out        <= 3'b0;
+            id_ex_dmem_ren_out        <= 1'b0;
+            id_ex_dmem_wen_out        <= 1'b0;
+            id_ex_i_opsel_out         <= 3'b0;
+            id_ex_i_arith_out         <= 1'b0;
+            id_ex_i_unsigned_out      <= 1'b0;
+            id_ex_i_sub_out           <= 1'b0;
+            id_ex_auipc_out           <= 1'b0;
+            id_ex_i_alu_src_out       <= 1'b0;
+            id_ex_i_rd_wen_out        <= 1'b0;
+            id_ex_valid_out           <= 1'b0;
+        end else begin
+            id_ex_pc_reg_out          <= id_ex_pc_reg_in;
+            id_ex_pc_plus_4_out       <= id_ex_pc_plus_4_in;
+            id_ex_i_imem_rdata_out    <= id_ex_i_imem_rdata_in;
+            id_ex_o_rs1_rdata_out     <= id_ex_o_rs1_rdata_in;
+            id_ex_o_rs2_rdata_out     <= id_ex_o_rs2_rdata_in;
+            id_ex_o_immediate_out     <= id_ex_o_immediate_in;
+            id_ex_jump_out            <= id_ex_jump_in;
+            id_ex_jalr_out            <= id_ex_jalr_in;
+            id_ex_branch_out          <= id_ex_branch_in;
+            id_ex_branch_type_out     <= id_ex_branch_type_in;
+            id_ex_rd_dest_select_out  <= id_ex_rd_dest_select_in;
+            id_ex_store_sel_out       <= id_ex_store_sel_in;
+            id_ex_load_sel_out        <= id_ex_load_sel_in;
+            id_ex_dmem_ren_out        <= id_ex_dmem_ren_in;
+            id_ex_dmem_wen_out        <= id_ex_dmem_wen_in;
+            id_ex_i_opsel_out         <= id_ex_i_opsel_in;
+            id_ex_i_arith_out         <= id_ex_i_arith_in;
+            id_ex_i_unsigned_out      <= id_ex_i_unsigned_in;
+            id_ex_i_sub_out           <= id_ex_i_sub_in;
+            id_ex_auipc_out           <= id_ex_auipc_in;
+            id_ex_i_alu_src_out       <= id_ex_i_alu_src_in;
+            id_ex_i_rd_wen_out        <= id_ex_i_rd_wen_in;
+            id_ex_valid_out           <= 1'b1;
+        end
+    end
 
     /////////////////////////////////////
     // Execute Phase
     /////////////////////////////////////
-    wire [31:0] alu_result;
+    wire [31:0] o_result;
 
     execute_phase iDUT_execute (
-        .pc_in              (pc_reg),
-        .o_rs1_rdata_in     (o_rs1_rdata),
-        .o_rs2_rdata_in     (o_rs2_rdata),
-        .o_immediate        (o_immediate),
-        .jump               (jump),
-        .jalr               (jalr),
-        .branch             (branch),
-        .branch_type        (branch_type),
-        .i_opsel            (i_opsel),
-        .i_sub              (i_sub),
-        .i_unsigned         (i_unsigned),
-        .i_arith            (i_arith),
-        .auipc              (auipc),
-        .i_alu_src          (i_alu_src),
-        .pc_out             (pc_next),
-        .o_result           (alu_result)
+        .pc_in          (id_ex_pc_reg_out),
+        .o_rs1_rdata_in (id_ex_o_rs1_rdata_out),
+        .o_rs2_rdata_in (id_ex_o_rs2_rdata_out),
+        .o_immediate    (id_ex_o_immediate_out),
+        .jump           (id_ex_jump_out),
+        .jalr           (id_ex_jalr_out),
+        .branch         (id_ex_branch_out),
+        .branch_type    (id_ex_branch_type_out),
+        .i_opsel        (id_ex_i_opsel_out),
+        .i_sub          (id_ex_i_sub_out),
+        .i_unsigned     (id_ex_i_unsigned_out),
+        .i_arith        (id_ex_i_arith_out),
+        .auipc          (id_ex_auipc_out),
+        .i_alu_src      (id_ex_i_alu_src_out),
+        .pc_out         (pc_next),
+        .o_result       (o_result)
     );
-
 
     /////////////////////////////////////
     // Execute-Memory Pipeline
     /////////////////////////////////////
-    ex_to_mem iDUT_ex_to_mem (
-        .clk(i_clk),
-        .rst(i_rst),
-        .rd_dest_select(rd_dest_select),
-        .store_sel(store_sel),
-        .load_sel(load_sel),
-        .o_dmem_ren(o_dmem_ren),
-        .o_dmem_wen(o_dmem_wen),
-        .i_rd_wen(i_rd_wen),
-        .i_alu_result(alu_result),
-        .i_imem_rdata(i_imem_rdata),
-        .o_immediate(o_immediate),
-        .pc_plus_4(pc_plus_4),
-        .o_rs2_data(o_rs2_rdata),
-        .o_rd_dest_select_pipeline(rd_dest_select),
-        .o_store_sel_pipeline(store_sel),
-        .o_load_sel_pipeline(load_sel),
-        .o_dmem_ren_pipeline(dmem_ren),
-        .o_dmem_wen_pipeline(dmem_wen),
-        .o_alu_result_pipeline(alu_result),
-        .o_immediate_pipeline(o_immediate),
-        .o_pc_plus_4_pipeline(pc_plus_4),
-        .o_rs2_data_pipeline(o_rs2_rdata),
-        .i_rd_wen_pipeline(i_rd_wen),
-        .o_imem_rdata_pipeline(i_imem_rdata)
-    );
+    wire [31:0] ex_mem_pc_plus_4_in      = id_ex_pc_plus_4_out;
+    wire [31:0] ex_mem_pc_next_in        = pc_next;
+    wire [31:0] ex_mem_i_imem_rdata_in   = id_ex_i_imem_rdata_out;
+    wire [31:0] ex_mem_o_result_in       = o_result;
+    wire [31:0] ex_mem_o_rs1_rdata_in    = id_ex_o_rs1_rdata_out;
+    wire [31:0] ex_mem_o_rs2_rdata_in    = id_ex_o_rs2_rdata_out;
+    wire [31:0] ex_mem_o_immediate_in    = id_ex_o_immediate_out;
+    wire [ 1:0] ex_mem_rd_dest_select_in = id_ex_rd_dest_select_out;
+    wire [ 2:0] ex_mem_store_sel_in      = id_ex_store_sel_out;
+    wire [ 2:0] ex_mem_load_sel_in       = id_ex_load_sel_out;
+    wire        ex_mem_dmem_ren_in       = id_ex_dmem_ren_out;
+    wire        ex_mem_dmem_wen_in       = id_ex_dmem_wen_out;
+    wire        ex_mem_i_rd_wen_in       = id_ex_i_rd_wen_out;
+    wire        ex_mem_valid_in          = id_ex_valid_out;
+
+    reg  [31:0] ex_mem_pc_plus_4_out;
+    reg  [31:0] ex_mem_pc_next_out;
+    reg  [31:0] ex_mem_i_imem_rdata_out;
+    reg  [31:0] ex_mem_o_result_out;
+    reg  [31:0] ex_mem_o_rs1_rdata_out;
+    reg  [31:0] ex_mem_o_rs2_rdata_out;
+    reg  [31:0] ex_mem_o_immediate_out;
+    reg  [ 1:0] ex_mem_rd_dest_select_out;
+    reg  [ 2:0] ex_mem_store_sel_out;
+    reg  [ 2:0] ex_mem_load_sel_out;
+    reg         ex_mem_dmem_ren_out;
+    reg         ex_mem_dmem_wen_out;
+    reg         ex_mem_i_rd_wen_out;
+    reg         ex_mem_valid_out;
+
+    always @(posedge i_clk) begin
+        if (i_rst) begin
+            ex_mem_pc_plus_4_out      <= 32'b0;
+            ex_mem_pc_next_out        <= 32'b0;
+            ex_mem_i_imem_rdata_out   <= 32'b0;
+            ex_mem_o_result_out       <= 32'b0;
+            ex_mem_o_rs1_rdata_out    <= 32'b0;
+            ex_mem_o_rs2_rdata_out    <= 32'b0;
+            ex_mem_o_immediate_out    <= 32'b0;
+            ex_mem_rd_dest_select_out <= 2'b0;
+            ex_mem_store_sel_out      <= 3'b0;
+            ex_mem_load_sel_out       <= 3'b0;
+            ex_mem_dmem_ren_out       <= 1'b0;
+            ex_mem_dmem_wen_out       <= 1'b0;
+            ex_mem_i_rd_wen_out       <= 1'b0;
+            ex_mem_valid_out          <= 1'b0;
+        end else begin
+            ex_mem_pc_plus_4_out      <= ex_mem_pc_plus_4_in;
+            ex_mem_pc_next_out        <= ex_mem_pc_next_in;
+            ex_mem_i_imem_rdata_out   <= ex_mem_i_imem_rdata_in;
+            ex_mem_o_result_out       <= ex_mem_o_result_in;
+            ex_mem_o_rs1_rdata_out    <= ex_mem_o_rs1_rdata_in;
+            ex_mem_o_rs2_rdata_out    <= ex_mem_o_rs2_rdata_in;
+            ex_mem_o_immediate_out    <= ex_mem_o_immediate_in;
+            ex_mem_rd_dest_select_out <= ex_mem_rd_dest_select_in;
+            ex_mem_store_sel_out      <= ex_mem_store_sel_in;
+            ex_mem_load_sel_out       <= ex_mem_load_sel_in;
+            ex_mem_dmem_ren_out       <= ex_mem_dmem_ren_in;
+            ex_mem_dmem_wen_out       <= ex_mem_dmem_wen_in;
+            ex_mem_i_rd_wen_out       <= ex_mem_i_rd_wen_in;
+            ex_mem_valid_out          <= ex_mem_valid_in;
+        end
+    end
 
     /////////////////////////////////////
     // Memory Phase
@@ -344,78 +439,139 @@ module hart #(
     wire [31:0] load_mux_out;
 
     memory_phase iDUT_memory (
-        .alu_result         (alu_result),
-        .load_sel           (load_sel),
-        .store_sel          (store_sel),
-        .dmem_ren           (dmem_ren),
-        .dmem_wen           (dmem_wen),
-        .o_rs2_rdata        (o_rs2_rdata),
-        .i_dmem_rdata       (i_dmem_rdata),
-        .o_dmem_addr        (o_dmem_addr),
-        .o_dmem_ren         (o_dmem_ren),
-        .o_dmem_wen         (o_dmem_wen),
-        .o_dmem_wdata       (o_dmem_wdata),
-        .o_dmem_mask        (o_dmem_mask),
-        .load_mux_out       (load_mux_out)
+        .alu_result   (ex_mem_o_result_out),
+        .load_sel     (ex_mem_load_sel_out),
+        .store_sel    (ex_mem_store_sel_out),
+        .dmem_ren     (ex_mem_dmem_ren_out),
+        .dmem_wen     (ex_mem_dmem_wen_out),
+        .o_rs2_rdata  (ex_mem_o_rs2_rdata_out),
+        .i_dmem_rdata (i_dmem_rdata),
+        .o_dmem_addr  (o_dmem_addr),
+        .o_dmem_ren   (o_dmem_ren),
+        .o_dmem_wen   (o_dmem_wen),
+        .o_dmem_wdata (o_dmem_wdata),
+        .o_dmem_mask  (o_dmem_mask),
+        .load_mux_out (load_mux_out)
     );
 
     /////////////////////////////////////
     // Memory-Execute Pipeline
     /////////////////////////////////////
-    mem_to_w iDUT_mem_to_w (
-        .clk(i_clk),
-        .rst(i_rst),
-        .rd_dest_select(rd_dest_select),
-        .i_alu_result(alu_result),
-        .o_immediate(o_immediate),
-        .pc_plus_4(pc_plus_4),
-        .i_imem_rdata(i_imem_rdata),
-        .i_rd_wen(i_rd_wen),
-        .o_alu_result_pipeline(alu_result),
-        .o_immediate_pipeline(o_immediate),
-        .o_pc_plus_4_pipeline(pc_plus_4),
-        .o_imem_rdata_pipeline(i_imem_rdata),
-        .o_rd_dest_select_pipeline(rd_dest_select),
-        .i_rd_wen_pipeline(i_rd_wen)
-    );
+    wire [31:0] mem_wb_pc_plus_4_in      = ex_mem_pc_plus_4_out;
+    wire [31:0] mem_wb_pc_next_in        = ex_mem_pc_next_out;
+    wire [31:0] mem_wb_i_imem_rdata_in   = ex_mem_i_imem_rdata_out;
+    wire [31:0] mem_wb_o_result_in       = ex_mem_o_result_out;
+    wire [31:0] mem_wb_load_mux_out_in   = load_mux_out;
+    wire [31:0] mem_wb_o_immediate_in    = ex_mem_o_immediate_out;
+    wire [31:0] mem_wb_o_rs1_rdata_in    = ex_mem_o_rs1_rdata_out;
+    wire [31:0] mem_wb_o_rs2_rdata_in    = ex_mem_o_rs2_rdata_out;
+    wire [ 1:0] mem_wb_rd_dest_select_in = ex_mem_rd_dest_select_out;
+    wire        mem_wb_i_rd_wen_in       = ex_mem_i_rd_wen_out;
+    wire        mem_wb_valid_in          = ex_mem_valid_out;
+
+    reg  [31:0] mem_wb_pc_plus_4_out;
+    reg  [31:0] mem_wb_pc_next_out;
+    reg  [31:0] mem_wb_i_imem_rdata_out;
+    reg  [31:0] mem_wb_o_result_out;
+    reg  [31:0] mem_wb_load_mux_out_out;
+    reg  [31:0] mem_wb_o_immediate_out;
+    reg  [31:0] mem_wb_o_rs1_rdata_out;
+    reg  [31:0] mem_wb_o_rs2_rdata_out;
+    reg  [ 1:0] mem_wb_rd_dest_select_out;
+    reg         mem_wb_i_rd_wen_out;
+    reg         mem_wb_valid_out;
+
+    always @(posedge i_clk) begin
+        if (i_rst) begin
+            mem_wb_pc_plus_4_out      <= 32'b0;
+            mem_wb_pc_next_out        <= 32'b0;
+            mem_wb_i_imem_rdata_out   <= 32'b0;
+            mem_wb_o_result_out       <= 32'b0;
+            mem_wb_load_mux_out_out   <= 32'b0;
+            mem_wb_o_immediate_out    <= 32'b0;
+            mem_wb_o_rs1_rdata_out    <= 32'b0;
+            mem_wb_o_rs2_rdata_out    <= 32'b0;
+            mem_wb_rd_dest_select_out <= 2'b0;
+            mem_wb_i_rd_wen_out       <= 1'b0;
+            mem_wb_valid_out          <= 1'b0;
+        end else begin
+            mem_wb_pc_plus_4_out      <= mem_wb_pc_plus_4_in;
+            mem_wb_pc_next_out        <= mem_wb_pc_next_in;
+            mem_wb_i_imem_rdata_out   <= mem_wb_i_imem_rdata_in;
+            mem_wb_o_result_out       <= mem_wb_o_result_in;
+            mem_wb_load_mux_out_out   <= mem_wb_load_mux_out_in;
+            mem_wb_o_immediate_out    <= mem_wb_o_immediate_in;
+            mem_wb_o_rs1_rdata_out    <= mem_wb_o_rs1_rdata_in;
+            mem_wb_o_rs2_rdata_out    <= mem_wb_o_rs2_rdata_in;
+            mem_wb_rd_dest_select_out <= mem_wb_rd_dest_select_in;
+            mem_wb_i_rd_wen_out       <= mem_wb_i_rd_wen_in;
+            mem_wb_valid_out          <= mem_wb_valid_in;
+        end
+    end
 
     /////////////////////////////////////
     // Writeback Phase
     /////////////////////////////////////
     writeback_phase iDUT_writeback (
-        .rd_dest_select     (rd_dest_select),
-        .alu_result         (alu_result),
-        .pc_plus_4          (pc_plus_4),
-        .o_immediate        (o_immediate),
-        .load_mux_out       (load_mux_out),
-        .writeback_mux_out  (writeback_mux_out)
+        .rd_dest_select    (mem_wb_rd_dest_select_out),
+        .alu_result        (mem_wb_o_result_out),
+        .pc_plus_4         (mem_wb_pc_plus_4_out),
+        .o_immediate       (mem_wb_o_immediate_out),
+        .load_mux_out      (mem_wb_load_mux_out_out),
+        .writeback_mux_out (writeback_mux_out)
     );
+
+    // WB -> Decode register file write port feedback
+    assign wb_rd_waddr = mem_wb_i_imem_rdata_out[11:7];
+    assign wb_rd_wdata = writeback_mux_out;
+    assign wb_rd_wen   = mem_wb_i_rd_wen_out;
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    // POST PIPELINE LOGIC THAT NEEDS ALL SIGNALS DEFINED ALREADY
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////
+
+    /////////////////////////////////////
+    // Hazard Detection
+    /////////////////////////////////////
+    wire [4:0] id_rs1 = if_id_i_imem_rdata_out[19:15];
+    wire [4:0] id_rs2 = if_id_i_imem_rdata_out[24:20];
+
+    wire ex_rd_match  = id_ex_i_rd_wen_out  && (id_ex_i_imem_rdata_out[11:7] != 5'd0) &&
+                        ((id_ex_i_imem_rdata_out[11:7] == id_rs1) || (id_ex_i_imem_rdata_out[11:7] == id_rs2));
+    wire mem_rd_match = ex_mem_i_rd_wen_out && (ex_mem_i_imem_rdata_out[11:7] != 5'd0) &&
+                        ((ex_mem_i_imem_rdata_out[11:7] == id_rs1) || (ex_mem_i_imem_rdata_out[11:7] == id_rs2));
+
+    assign stall = ex_rd_match | mem_rd_match;
 
     /////////////////////////////////////
     // Retire Interface - hart comments
     /////////////////////////////////////
-    assign o_retire_valid     = ~i_rst;
-    assign o_retire_inst      = instruction;
-    assign o_retire_pc        = pc_reg;
-    assign o_retire_next_pc   = pc_next;
+    assign o_retire_valid     = ~i_rst & mem_wb_valid_out;
+    assign o_retire_inst      = mem_wb_i_imem_rdata_out;
+    assign o_retire_pc        = mem_wb_pc_plus_4_out - 32'd4;
+    assign o_retire_next_pc   = mem_wb_pc_next_out;
 
-    assign o_retire_rs1_raddr = instruction[19:15];
-    assign o_retire_rs2_raddr = instruction[24:20];
-    assign o_retire_rd_waddr  = i_rd_wen ? instruction[11:7] : 5'd0;
+    assign o_retire_rs1_raddr = mem_wb_i_imem_rdata_out[19:15];
+    assign o_retire_rs2_raddr = mem_wb_i_imem_rdata_out[24:20];
+    assign o_retire_rd_waddr  = mem_wb_i_rd_wen_out ? mem_wb_i_imem_rdata_out[11:7] : 5'd0;
 
-    assign o_retire_rs1_rdata = o_rs1_rdata;
-    assign o_retire_rs2_rdata = o_rs2_rdata;
+    assign o_retire_rs1_rdata = mem_wb_o_rs1_rdata_out;
+    assign o_retire_rs2_rdata = mem_wb_o_rs2_rdata_out;
     assign o_retire_rd_wdata  = writeback_mux_out;
 
     // DO NOT FORGOR THIS
-    assign o_retire_halt = (instruction == 32'h00100073);
+    assign o_retire_halt = (mem_wb_i_imem_rdata_out == 32'h00100073);
 
     // Trap on misaligned instruction fetch target or misaligned data access
-    wire misaligned_fetch = (jump | jalr | branch) & (pc_next[1:0] != 2'b00);
-    wire misaligned_dmem  = (dmem_wen & (store_sel == 3'b010) & (alu_result[1:0] != 2'b00)) |
-                            (dmem_wen & (store_sel == 3'b001) & (alu_result[0]   != 1'b0))  |
-                            (dmem_ren & (load_sel  == 3'b010) & (alu_result[1:0] != 2'b00)) |
-                            (dmem_ren & (load_sel  == 3'b001) & (alu_result[0]   != 1'b0));
+    wire misaligned_fetch = (id_ex_jump_out | id_ex_jalr_out | id_ex_branch_out) &
+                            (pc_next[1:0] != 2'b00);
+    wire misaligned_dmem  = (ex_mem_dmem_wen_out & (ex_mem_store_sel_out == 3'b010) & (ex_mem_o_result_out[1:0] != 2'b00)) |
+                            (ex_mem_dmem_wen_out & (ex_mem_store_sel_out == 3'b001) & (ex_mem_o_result_out[0]   != 1'b0 )) |
+                            (ex_mem_dmem_ren_out & (ex_mem_load_sel_out  == 3'b010) & (ex_mem_o_result_out[1:0] != 2'b00)) |
+                            (ex_mem_dmem_ren_out & (ex_mem_load_sel_out  == 3'b001) & (ex_mem_o_result_out[0]   != 1'b0 ));
     assign o_retire_trap  = misaligned_fetch | misaligned_dmem;
 
 endmodule

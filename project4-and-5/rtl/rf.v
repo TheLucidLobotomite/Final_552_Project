@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 `default_nettype none
 
 // The register file is effectively a single cycle memory with 32-bit words

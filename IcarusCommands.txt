@@ -4,3 +4,7 @@ vvp <file name_tb>.vvp
 Example Project 3:
 iverilog -o sim.vvp {insert testbench file}.v hart.v decode_phase.v control.v imm.v rf.v execute_phase.v alu.v memory_phase.v writeback_phase.v
 vvp sim.vvp
+
+Project 4:
+iverilog -o sim.vvp hart_tb.v hart.v decode_phase.v control.v imm.v rf.v execute_phase.v alu.v memory_phase.v writeback_phase.v
+vvp sim.vvp

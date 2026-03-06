@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 `default_nettype none
 
 // The arithmetic logic unit (ALU) is responsible for performing the core

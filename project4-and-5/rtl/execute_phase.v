@@ -1,3 +1,6 @@
+`timescale 1ns / 1ps
+`default_nettype none
+
 module execute_phase (
     // Inputs
     input wire [31:0] pc_in,

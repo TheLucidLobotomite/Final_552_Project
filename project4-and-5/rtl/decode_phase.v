@@ -1,10 +1,17 @@
+`timescale 1ns / 1ps
+`default_nettype none
+
 module decode #(
         parameter BYPASS_EN = 0
 ) (
     input wire clk,
     input wire rst,
     input wire [31:0] i_imem_rdata,
-    input wire [31:0] writeback_mux_out,
+    
+    // Writeback port - driven from WB stage in hart.v
+    input wire [ 4:0] i_wb_rd_waddr,
+    input wire [31:0] i_wb_rd_wdata,
+    input wire        i_wb_rd_wen,
     output wire [31:0] o_rs1_data_in,
     output wire [31:0] o_rs2_data_in,
     output wire [31:0] o_immediate,
@@ -26,7 +33,7 @@ module decode #(
     output wire i_rd_wen,
     output wire [5:0] i_format
 );
-  
+
     // Instantiate the imm module
     imm imm_inst (
         .i_inst(i_imem_rdata),
@@ -57,14 +64,16 @@ module decode #(
     );
 
     // Instantiate the register file
-    rf #(.BYPASS_EN(0)) regfile_inst (
+    // Read addresses come from the current decode-stage instruction.
+    // Write port is driven from the writeback stage via hart.v.
+    rf #(.BYPASS_EN(BYPASS_EN)) regfile_inst (
         .i_clk      (clk),
         .i_rst      (rst),
         .i_rs1_raddr(i_imem_rdata[19:15]),
         .i_rs2_raddr(i_imem_rdata[24:20]),
-        .i_rd_waddr (i_imem_rdata[11:7]),
-        .i_rd_wdata (writeback_mux_out),
-        .i_rd_wen   (i_rd_wen),
+        .i_rd_waddr (i_wb_rd_waddr),
+        .i_rd_wdata (i_wb_rd_wdata),
+        .i_rd_wen   (i_wb_rd_wen),
         .o_rs1_rdata(o_rs1_data_in),
         .o_rs2_rdata(o_rs2_data_in)
     );

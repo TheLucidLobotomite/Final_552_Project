@@ -142,12 +142,7 @@ module hart #(
     /////////////////////////////////////
     // PC/Instruction Fetch Phase
     /////////////////////////////////////
-    assign o_retire_dmem_addr  = o_dmem_addr;
-    assign o_retire_dmem_ren   = o_dmem_ren;
-    assign o_retire_dmem_wen   = o_dmem_wen;
-    assign o_retire_dmem_mask  = o_dmem_mask;
-    assign o_retire_dmem_wdata = o_dmem_wdata;
-    assign o_retire_dmem_rdata = i_dmem_rdata;
+
 
     wire stall;
     reg  [31:0] pc_reg;
@@ -175,18 +170,34 @@ module hart #(
     reg  [31:0] if_id_pc_reg_out;
     reg  [31:0] if_id_pc_plus_4_out;
     reg  [31:0] if_id_i_imem_rdata_out;
+    reg if_id_valid_out;
+
+    wire [6:0] if_id_opcode;
+    assign if_id_opcode = if_id_i_imem_rdata_out[6:0];
+
+    wire if_id_is_jal;
+
+    assign if_id_is_jal  = (if_id_opcode == 7'b1101111);
 
     always @(posedge i_clk) begin
         if (i_rst) begin
             if_id_pc_reg_out       <= 32'b0;
             if_id_pc_plus_4_out    <= 32'b0;
             if_id_i_imem_rdata_out <= 32'b0;
+            if_id_valid_out        <= 1'b0;
+        end else if (if_id_valid_out & if_id_is_jal) begin
+            if_id_pc_reg_out       <= 32'b0;
+            if_id_pc_plus_4_out    <= 32'b0;
+            if_id_i_imem_rdata_out <= 32'b0;
+            if_id_valid_out        <= 1'b0;
         end else if (!stall) begin
             if_id_pc_reg_out       <= if_id_pc_reg_in;
             if_id_pc_plus_4_out    <= if_id_pc_plus_4_in;
             if_id_i_imem_rdata_out <= if_id_i_imem_rdata_in;
+            if_id_valid_out        <= 1'b1;
         end
     end
+
 
     /////////////////////////////////////
     // Decode Phase
@@ -338,7 +349,7 @@ module hart #(
             id_ex_auipc_out           <= id_ex_auipc_in;
             id_ex_i_alu_src_out       <= id_ex_i_alu_src_in;
             id_ex_i_rd_wen_out        <= id_ex_i_rd_wen_in;
-            id_ex_valid_out           <= 1'b1;
+            id_ex_valid_out           <= if_id_valid_out;
         end
     end
 
@@ -346,7 +357,7 @@ module hart #(
     // Execute Phase
     /////////////////////////////////////
     wire [31:0] o_result;
-
+    wire [31:0] execute_pc_next;
     execute_phase iDUT_execute (
         .pc_in          (id_ex_pc_reg_out),
         .o_rs1_rdata_in (id_ex_o_rs1_rdata_out),
@@ -362,15 +373,20 @@ module hart #(
         .i_arith        (id_ex_i_arith_out),
         .auipc          (id_ex_auipc_out),
         .i_alu_src      (id_ex_i_alu_src_out),
-        .pc_out         (pc_next),
+        .pc_out         (execute_pc_next),
         .o_result       (o_result)
     );
+assign pc_next = if_id_is_jal
+                 ? (if_id_pc_reg_out + o_immediate)
+                 : ((id_ex_valid_out & id_ex_jalr_out)
+                    ? execute_pc_next
+                    : pc_plus_4);
 
     /////////////////////////////////////
     // Execute-Memory Pipeline
     /////////////////////////////////////
     wire [31:0] ex_mem_pc_plus_4_in      = id_ex_pc_plus_4_out;
-    wire [31:0] ex_mem_pc_next_in        = pc_next;
+    wire [31:0] ex_mem_pc_next_in        = execute_pc_next;
     wire [31:0] ex_mem_i_imem_rdata_in   = id_ex_i_imem_rdata_out;
     wire [31:0] ex_mem_o_result_in       = o_result;
     wire [31:0] ex_mem_o_rs1_rdata_in    = id_ex_o_rs1_rdata_out;
@@ -462,6 +478,12 @@ module hart #(
     wire [31:0] mem_wb_i_imem_rdata_in   = ex_mem_i_imem_rdata_out;
     wire [31:0] mem_wb_o_result_in       = ex_mem_o_result_out;
     wire [31:0] mem_wb_load_mux_out_in   = load_mux_out;
+    wire [31:0] mem_wb_dmem_addr_in  = o_dmem_addr;
+    wire        mem_wb_dmem_ren_in   = o_dmem_ren;
+    wire        mem_wb_dmem_wen_in   = o_dmem_wen;
+    wire [ 3:0] mem_wb_dmem_mask_in  = o_dmem_mask;
+    wire [31:0] mem_wb_dmem_wdata_in = o_dmem_wdata;
+    wire [31:0] mem_wb_dmem_rdata_in = i_dmem_rdata;
     wire [31:0] mem_wb_o_immediate_in    = ex_mem_o_immediate_out;
     wire [31:0] mem_wb_o_rs1_rdata_in    = ex_mem_o_rs1_rdata_out;
     wire [31:0] mem_wb_o_rs2_rdata_in    = ex_mem_o_rs2_rdata_out;
@@ -480,6 +502,12 @@ module hart #(
     reg  [ 1:0] mem_wb_rd_dest_select_out;
     reg         mem_wb_i_rd_wen_out;
     reg         mem_wb_valid_out;
+    reg [31:0] mem_wb_dmem_addr_out;
+    reg        mem_wb_dmem_ren_out;
+    reg        mem_wb_dmem_wen_out;
+    reg [ 3:0] mem_wb_dmem_mask_out;
+    reg [31:0] mem_wb_dmem_wdata_out;
+    reg [31:0] mem_wb_dmem_rdata_out;
 
     always @(posedge i_clk) begin
         if (i_rst) begin
@@ -494,6 +522,12 @@ module hart #(
             mem_wb_rd_dest_select_out <= 2'b0;
             mem_wb_i_rd_wen_out       <= 1'b0;
             mem_wb_valid_out          <= 1'b0;
+            mem_wb_dmem_addr_out      <= 32'b0;
+            mem_wb_dmem_ren_out       <= 1'b0;
+            mem_wb_dmem_wen_out       <= 1'b0;
+            mem_wb_dmem_mask_out      <= 4'b0;
+            mem_wb_dmem_wdata_out     <= 32'b0;
+            mem_wb_dmem_rdata_out     <= 32'b0;
         end else begin
             mem_wb_pc_plus_4_out      <= mem_wb_pc_plus_4_in;
             mem_wb_pc_next_out        <= mem_wb_pc_next_in;
@@ -506,6 +540,12 @@ module hart #(
             mem_wb_rd_dest_select_out <= mem_wb_rd_dest_select_in;
             mem_wb_i_rd_wen_out       <= mem_wb_i_rd_wen_in;
             mem_wb_valid_out          <= mem_wb_valid_in;
+            mem_wb_dmem_addr_out      <= mem_wb_dmem_addr_in;
+            mem_wb_dmem_ren_out       <= mem_wb_dmem_ren_in;
+            mem_wb_dmem_wen_out       <= mem_wb_dmem_wen_in;
+            mem_wb_dmem_mask_out      <= mem_wb_dmem_mask_in;
+            mem_wb_dmem_wdata_out     <= mem_wb_dmem_wdata_in;
+            mem_wb_dmem_rdata_out     <= mem_wb_dmem_rdata_in;
         end
     end
 
@@ -526,6 +566,13 @@ module hart #(
     assign wb_rd_wdata = writeback_mux_out;
     assign wb_rd_wen   = mem_wb_i_rd_wen_out;
 
+        assign o_retire_dmem_addr  = mem_wb_dmem_addr_out;
+    assign o_retire_dmem_ren   = mem_wb_dmem_ren_out;
+    assign o_retire_dmem_wen   = mem_wb_dmem_wen_out;
+    assign o_retire_dmem_mask  = mem_wb_dmem_mask_out;
+    assign o_retire_dmem_wdata = mem_wb_dmem_wdata_out;
+    assign o_retire_dmem_rdata = mem_wb_dmem_rdata_out;
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////
@@ -536,15 +583,66 @@ module hart #(
     /////////////////////////////////////
     // Hazard Detection
     /////////////////////////////////////
-    wire [4:0] id_rs1 = if_id_i_imem_rdata_out[19:15];
-    wire [4:0] id_rs2 = if_id_i_imem_rdata_out[24:20];
+    // 
+    wire [6:0] id_opcode = if_id_i_imem_rdata_out[6:0];
+wire [4:0] id_rs1    = if_id_i_imem_rdata_out[19:15];
+wire [4:0] id_rs2    = if_id_i_imem_rdata_out[24:20];
+wire [4:0] ex_rd     = id_ex_i_imem_rdata_out[11:7];
 
-    wire ex_rd_match  = id_ex_i_rd_wen_out  && (id_ex_i_imem_rdata_out[11:7] != 5'd0) &&
-                        ((id_ex_i_imem_rdata_out[11:7] == id_rs1) || (id_ex_i_imem_rdata_out[11:7] == id_rs2));
+wire id_uses_rs1;
+wire id_uses_rs2;
+
+assign id_uses_rs1 =
+    (id_opcode == 7'b0110011) |   // R-type
+    (id_opcode == 7'b0010011) |   // I-type ALU
+    (id_opcode == 7'b0000011) |   // loads
+    (id_opcode == 7'b0100011) |   // stores
+    (id_opcode == 7'b1100011) |   // branches
+    (id_opcode == 7'b1100111);    // jalr
+
+assign id_uses_rs2 =
+    (id_opcode == 7'b0110011) |   // R-type
+    (id_opcode == 7'b0100011) |   // stores
+    (id_opcode == 7'b1100011);    // branches
+
+wire ex_rd_match;
+assign ex_rd_match =
+    id_ex_i_rd_wen_out &
+    (ex_rd != 5'd0) &
+    (
+        (id_uses_rs1 & (ex_rd == id_rs1)) |
+        (id_uses_rs2 & (ex_rd == id_rs2))
+    );
     wire mem_rd_match = ex_mem_i_rd_wen_out && (ex_mem_i_imem_rdata_out[11:7] != 5'd0) &&
                         ((ex_mem_i_imem_rdata_out[11:7] == id_rs1) || (ex_mem_i_imem_rdata_out[11:7] == id_rs2));
 
     assign stall = ex_rd_match | mem_rd_match;
+
+        /////////////////////////////////////
+    // Hazard Detection
+    /////////////////////////////////////
+    // wire [6:0] id_opcode = if_id_i_imem_rdata_out[6:0];
+    // wire [4:0] id_rs1    = if_id_i_imem_rdata_out[19:15];
+    // wire [4:0] id_rs2    = if_id_i_imem_rdata_out[24:20];
+
+    // wire [4:0] ex_rd     = id_ex_i_imem_rdata_out[11:7];
+    // wire [4:0] mem_rd    = ex_mem_i_imem_rdata_out[11:7];
+
+    // wire id_uses_rs1 = (id_opcode != 7'b0110111) &   // lui
+    //                    (id_opcode != 7'b0010111);    // auipc
+
+    // wire id_uses_rs2 = (id_opcode == 7'b0110011) |   // R-type
+    //                    (id_opcode == 7'b0100011);    // store
+
+    // wire ex_rd_match  = id_ex_i_rd_wen_out  & (ex_rd  != 5'd0) &
+    //                     ((id_uses_rs1 & (ex_rd  == id_rs1)) |
+    //                      (id_uses_rs2 & (ex_rd  == id_rs2)));
+
+    // wire mem_rd_match = ex_mem_i_rd_wen_out & (mem_rd != 5'd0) &
+    //                     ((id_uses_rs1 & (mem_rd == id_rs1)) |
+    //                      (id_uses_rs2 & (mem_rd == id_rs2)));
+
+    // assign stall = ex_rd_match | mem_rd_match;
 
     /////////////////////////////////////
     // Retire Interface - hart comments

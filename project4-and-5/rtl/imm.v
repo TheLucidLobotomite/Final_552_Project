@@ -24,11 +24,11 @@ module imm (
     output wire [31:0] o_immediate
 );
     wire [31:0] imm_r = {{32{1'bx}}};
-    wire [31:0] imm_i = {{21{i_inst[31]}}, i_inst[30:25], i_inst[24:21], i_inst[20]};
-    wire [31:0] imm_s = {{21{i_inst[31]}}, i_inst[30:25], i_inst[11:8], i_inst[7]};
-    wire [31:0] imm_b = {{20{i_inst[31]}}, i_inst[7], i_inst[30:25], i_inst[11:8], 1'b0};
-    wire [31:0] imm_u = {i_inst[31], i_inst[30:20], i_inst[19:12], 12'b0};
-    wire [31:0] imm_j = {{12{i_inst[31]}}, i_inst[19:12], i_inst[20], i_inst[30:25], i_inst[24:21], 1'b0}; 
+    wire [31:0] imm_i = {{20{i_inst[31]}}, i_inst[31:20]};
+    wire [31:0] imm_s = {{20{i_inst[31]}}, i_inst[31:25], i_inst[11:7]};
+    wire [31:0] imm_b = {{19{i_inst[31]}}, i_inst[31], i_inst[7], i_inst[30:25], i_inst[11:8], 1'b0};
+    wire [31:0] imm_u = {i_inst[31:12], 12'b0};
+    wire [31:0] imm_j = {{11{i_inst[31]}}, i_inst[31], i_inst[19:12], i_inst[20], i_inst[30:21], 1'b0};
 
     assign o_immediate = i_format[0] ? imm_r :
                          i_format[1] ? imm_i :

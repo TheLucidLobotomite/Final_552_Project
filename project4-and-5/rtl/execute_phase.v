@@ -19,7 +19,8 @@ module execute_phase (
 
     // Outputs
     output wire [31:0]pc_out,
-    output wire [31:0]o_result
+    output wire [31:0]o_result,
+    output wire br_condition_met
 );
     /////////////////////////////////////
     // The grind starts here gentlemen
@@ -27,7 +28,7 @@ module execute_phase (
 
     // Intermediate Signals
     wire [31:0]i_op1, i_op2;
-    wire op_eq, op_slt, br_condition_met;
+    wire op_eq, op_slt;
 
     // Pre-alu
 	assign i_op1 = auipc ? pc_in : o_rs1_rdata_in;

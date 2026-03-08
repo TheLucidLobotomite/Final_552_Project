@@ -371,7 +371,7 @@ module hart #(
         .br_condition_met (br_condition_met)
     );
     assign flush = id_ex_valid_out & (id_ex_jalr_out | (id_ex_branch_out & br_condition_met));
-    assign pc_next = if_id_is_jal ? (if_id_pc_reg_out + o_immediate) : (flush ? execute_pc_next : pc_plus_4);
+    assign pc_next = flush ? execute_pc_next : (if_id_is_jal ? (if_id_pc_reg_out + o_immediate) : pc_plus_4);
     
     /////////////////////////////////////
     // Execute-Memory Pipeline

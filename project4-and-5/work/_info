@@ -1,0 +1,241 @@
+m255
+K4
+z2
+!s11f vlog 2020.1 2020.02, Feb 28 2020
+13
+!s112 1.1
+!i10d 8192
+!i10e 25
+!i10f 100
+cModel Technology
+dC:/Users/ITAUser/Downloads
+valu
+!s110 1772940703
+!i10b 1
+!s100 SC3a`4C4iIF2VBK`_KiQK1
+Z0 !s11b Dg1SIo80bB@j0V0VzS_@n1
+I^CbdB50@?VT>NhbG_^_?]2
+Z1 VDg1SIo80bB@j0V0VzS_@n1
+Z2 dC:/Users/ITAUser/Final_552_Project/project4-and-5
+Z3 w1772810165
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/alu.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/alu.v
+!i122 83
+L0 9 89
+Z4 OV;L;2020.1;71
+r1
+!s85 0
+31
+Z5 !s108 1772940703.000000
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/alu.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/alu.v|
+!i113 1
+Z6 o-work work
+Z7 tCvgOpt 0
+vcontrol
+Z8 !s110 1772940704
+!i10b 1
+!s100 QfT8B[iW3=YOHO0=E4FG92
+R0
+IgPDX@1ODQZ4>g6L3QWobB0
+R1
+R2
+R3
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/control.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/control.v
+!i122 84
+L0 4 130
+R4
+r1
+!s85 0
+31
+R5
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/control.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/control.v|
+!i113 1
+R6
+R7
+vdecode
+R8
+!i10b 1
+!s100 5`<Jja4SDgfNPa?`F?8:=2
+R0
+I?m`XKSB4jZjj?314oo4z]0
+R1
+R2
+R3
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/decode_phase.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/decode_phase.v
+!i122 85
+L0 4 78
+R4
+r1
+!s85 0
+31
+Z9 !s108 1772940704.000000
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/decode_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/decode_phase.v|
+!i113 1
+R6
+R7
+vexecute_phase
+R8
+!i10b 1
+!s100 mMUEoXX9>5LZc[CPD=5ak3
+R0
+IEYLY;Sn]>e:mK>@iGSF^?0
+R1
+R2
+R3
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/execute_phase.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/execute_phase.v
+!i122 86
+L0 4 61
+R4
+r1
+!s85 0
+31
+R9
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/execute_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/execute_phase.v|
+!i113 1
+R6
+R7
+vhart
+!s110 1772940875
+!i10b 1
+!s100 ?0@m`KD4o8g_]edC0b5YQ2
+R0
+Ii[:2z0M=4:VU>if]OOdak0
+R1
+R2
+w1772940870
+8C:\Users\ITAUser\Final_552_Project\project4-and-5\rtl\hart.v
+FC:\Users\ITAUser\Final_552_Project\project4-and-5\rtl\hart.v
+!i122 92
+L0 4 672
+R4
+r1
+!s85 0
+31
+!s108 1772940875.000000
+!s107 C:\Users\ITAUser\Final_552_Project\project4-and-5\rtl\hart.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:\Users\ITAUser\Final_552_Project\project4-and-5\rtl\hart.v|
+!i113 1
+R6
+R7
+vhart_tb
+Z10 !s110 1772940705
+!i10b 1
+!s100 _CC40:@EQjdEU=FF^[@F31
+R0
+IM0R`m`_eDeD7eD=0lUBDG2
+R1
+R2
+R3
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/tb/tb.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/tb/tb.v
+!i122 91
+L0 2 182
+R4
+r1
+!s85 0
+31
+!s108 1772940705.000000
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/tb/tb.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/tb/tb.v|
+!i113 1
+R6
+R7
+vimm
+R8
+!i10b 1
+!s100 LgUCfPk9Q2KH4zbS^W9:h3
+R0
+IeblnF8ZM6Hh^W5oGz39zD0
+R1
+R2
+w1772939106
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/imm.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/imm.v
+!i122 87
+L0 7 34
+R4
+r1
+!s85 0
+31
+R9
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/imm.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/imm.v|
+!i113 1
+R6
+R7
+vmemory_phase
+R8
+!i10b 1
+!s100 LcT?zcllkU`H2Y_1DYdTN3
+R0
+INMDnJ];h:Cb3j:eClVPid2
+R1
+R2
+w1772938826
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/memory_phase.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/memory_phase.v
+!i122 88
+L0 4 72
+R4
+r1
+!s85 0
+31
+R9
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/memory_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/memory_phase.v|
+!i113 1
+R6
+R7
+vrf
+R8
+!i10b 1
+!s100 FLjm3JT5ODCmIeg[iIJKh1
+R0
+IPWfT7f3N99_mO`?;3ITRj2
+R1
+R2
+R3
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/rf.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/rf.v
+!i122 89
+L0 9 58
+R4
+r1
+!s85 0
+31
+R9
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/rf.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/rf.v|
+!i113 1
+R6
+R7
+vwriteback_phase
+R10
+!i10b 1
+!s100 =::5U<Nl@hdD3]]LFWB]32
+R0
+Idok?kiAGG_]FN@hFF_CLf0
+R1
+R2
+R3
+8C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/writeback_phase.v
+FC:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/writeback_phase.v
+!i122 90
+L0 4 14
+R4
+r1
+!s85 0
+31
+R9
+!s107 C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/writeback_phase.v|
+!s90 -reportprogress|300|-work|work|-stats=none|C:/Users/ITAUser/Final_552_Project/project4-and-5/rtl/writeback_phase.v|
+!i113 1
+R6
+R7

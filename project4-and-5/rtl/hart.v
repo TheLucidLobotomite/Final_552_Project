@@ -325,6 +325,11 @@ module hart #(
     wire [31:0] o_result;
     wire [31:0] execute_pc_next;
     wire br_condition_met;
+    wire [31:0] ex_rs1_fwd, ex_rs2_fwd; // post-forwarding operand values
+
+    // Forwarding control signals — declared here, driven after MEM/WB regs below
+    wire [1:0]  fwd_alu_src_i_op1, fwd_alu_src_i_op2;
+    wire [31:0] fwd_ex_val, fwd_mem_val;
 
     execute_phase iDUT_execute (
         .pc_in          (id_ex_pc_reg_out),
@@ -341,9 +346,15 @@ module hart #(
         .i_arith        (id_ex_i_arith_out),
         .auipc          (id_ex_auipc_out),
         .i_alu_src      (id_ex_i_alu_src_out),
-        .pc_out         (execute_pc_next),
-        .o_result       (o_result),
-        .br_condition_met (br_condition_met)
+        .fwd_alu_src_i_op1 (fwd_alu_src_i_op1),
+        .fwd_alu_src_i_op2 (fwd_alu_src_i_op2),
+        .fwd_ex_val     (fwd_ex_val),
+        .fwd_mem_val    (fwd_mem_val),
+        .pc_out           (execute_pc_next),
+        .o_result         (o_result),
+        .br_condition_met (br_condition_met),
+        .o_rs1_fwd        (ex_rs1_fwd),
+        .o_rs2_fwd        (ex_rs2_fwd)
     );
     
     assign flush = id_ex_valid_out & (id_ex_jalr_out | (id_ex_branch_out & br_condition_met));
@@ -388,8 +399,8 @@ module hart #(
             ex_mem_pc_next_out        <= execute_pc_next;
             ex_mem_i_imem_rdata_out   <= id_ex_i_imem_rdata_out;
             ex_mem_o_result_out       <= o_result;
-            ex_mem_o_rs1_rdata_out    <= id_ex_o_rs1_rdata_out;
-            ex_mem_o_rs2_rdata_out    <= id_ex_o_rs2_rdata_out;
+            ex_mem_o_rs1_rdata_out    <= ex_rs1_fwd;
+            ex_mem_o_rs2_rdata_out    <= ex_rs2_fwd;
             ex_mem_o_immediate_out    <= id_ex_o_immediate_out;
             ex_mem_rd_dest_select_out <= id_ex_rd_dest_select_out;
             ex_mem_store_sel_out      <= id_ex_store_sel_out;
@@ -483,6 +494,35 @@ module hart #(
         end
     end
 
+    ////////////////////////////////////
+    // Forwarding Unit + Value Sources
+    // Placed here so all pipeline regs are declared before use
+    ////////////////////////////////////
+
+    // EX->EX: ALU result sitting in EX/MEM reg
+    assign fwd_ex_val = ex_mem_o_result_out;
+
+    // MEM->EX: combinational writeback mux over MEM/WB regs
+    writeback_phase iDUT_fwd_wb (
+        .rd_dest_select    (mem_wb_rd_dest_select_out),
+        .alu_result        (mem_wb_o_result_out),
+        .pc_plus_4         (mem_wb_pc_plus_4_out),
+        .o_immediate       (mem_wb_o_immediate_out),
+        .load_mux_out      (mem_wb_load_mux_out_out),
+        .writeback_mux_out (fwd_mem_val)
+    );
+
+    forwarding_unit iDUT_fwd (
+        .ex_rs1       (id_ex_i_imem_rdata_out[19:15]),
+        .ex_rs2       (id_ex_i_imem_rdata_out[24:20]),
+        .exmem_rd     (ex_mem_i_imem_rdata_out[11:7]),
+        .exmem_rd_wen (ex_mem_i_rd_wen_out),
+        .memwb_rd     (mem_wb_i_imem_rdata_out[11:7]),
+        .memwb_rd_wen (mem_wb_i_rd_wen_out),
+        .fwd_rs1_sel  (fwd_alu_src_i_op1),
+        .fwd_rs2_sel  (fwd_alu_src_i_op2)
+    );
+
     /////////////////////////////////////
     // Writeback Phase
     /////////////////////////////////////
@@ -516,6 +556,8 @@ module hart #(
 
     /////////////////////////////////////
     // Hazard Detection
+    // With EX->EX and MEM->EX forwarding, the only remaining RAW hazard
+    // that cannot be forwarded is a load-use hazard
     /////////////////////////////////////
     wire [6:0] id_opcode = if_id_i_imem_rdata_out[6:0];
     wire [4:0] id_rs1    = if_id_i_imem_rdata_out[19:15];
@@ -535,19 +577,14 @@ module hart #(
         (id_opcode == 7'b0100011) |   // stores
         (id_opcode == 7'b1100011);    // branches
 
-    wire ex_rd_match = id_ex_i_rd_wen_out & (ex_rd != 5'd0) &
+    // Load-use hazard: EX stage is a load and rd matches ID stage rs1/rs2
+    wire load_use_hazard = id_ex_dmem_ren_out & (ex_rd != 5'd0) &
         (
             (id_uses_rs1 & (ex_rd == id_rs1)) |
             (id_uses_rs2 & (ex_rd == id_rs2))
         );
 
-    wire mem_rd_match = ex_mem_i_rd_wen_out & (ex_mem_i_imem_rdata_out[11:7] != 5'd0) &
-        (
-            (id_uses_rs1 & (ex_mem_i_imem_rdata_out[11:7] == id_rs1)) |
-            (id_uses_rs2 & (ex_mem_i_imem_rdata_out[11:7] == id_rs2))
-        );
-
-    assign stall = ex_rd_match | mem_rd_match;
+    assign stall = load_use_hazard;
 
     /////////////////////////////////////
     // Retire Interface - hart comments

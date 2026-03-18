@@ -17,10 +17,22 @@ module execute_phase (
     input wire auipc,
     input wire i_alu_src,
 
+    // Forwarding mux selects (from hart)
+    // 2'b00 = use register file value 
+    // 2'b01 = EX->EX forward
+    // 2'b10 = MEM->EX forward
+    input wire [1:0]  fwd_alu_src_i_op1,
+    input wire [1:0]  fwd_alu_src_i_op2,
+    input wire [31:0] fwd_ex_val,
+    input wire [31:0] fwd_mem_val,
+
     // Outputs
-    output wire [31:0]pc_out,
-    output wire [31:0]o_result,
-    output wire br_condition_met
+    output wire [31:0] pc_out,
+    output wire [31:0] o_result,
+    output wire        br_condition_met,
+    // Post-forwarding operand values — used by hart to correctly report rs1/rs2
+    output wire [31:0] o_rs1_fwd,
+    output wire [31:0] o_rs2_fwd
 );
     /////////////////////////////////////
     // The grind starts here gentlemen
@@ -30,9 +42,18 @@ module execute_phase (
     wire [31:0]i_op1, i_op2;
     wire op_eq, op_slt;
 
+    // Forwarding muxes: select the correct RS1/RS2 value before feeding the ALU
+    wire [31:0] alu_mux_op1 = (fwd_alu_src_i_op1 == 2'b01) ? fwd_ex_val  : (fwd_alu_src_i_op1 == 2'b10) ? fwd_mem_val : o_rs1_rdata_in;
+
+    wire [31:0] alu_mux_op2 = (fwd_alu_src_i_op2 == 2'b01) ? fwd_ex_val  : (fwd_alu_src_i_op2 == 2'b10) ? fwd_mem_val : o_rs2_rdata_in;
+
     // Pre-alu
-	assign i_op1 = auipc ? pc_in : o_rs1_rdata_in;
-    assign i_op2 = i_alu_src ? o_immediate : o_rs2_rdata_in;
+	assign i_op1 = auipc ? pc_in : alu_mux_op1;
+    assign i_op2 = i_alu_src ? o_immediate : alu_mux_op2;
+
+    // Expose post-forwarding values for pipeline rs1/rs2 tracking
+    assign o_rs1_fwd = alu_mux_op1;
+    assign o_rs2_fwd = alu_mux_op2;
 
     // ALU instantiation
     alu u_alu (

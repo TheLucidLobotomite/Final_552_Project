@@ -500,8 +500,16 @@ module hart #(
     ////////////////////////////////////
 
     // EX->EX: ALU result sitting in EX/MEM reg
-    assign fwd_ex_val = ex_mem_o_result_out;
+    wire [6:0] ex_mem_opcode = ex_mem_i_imem_rdata_out[6:0];
 
+    wire ex_mem_is_lui  = (ex_mem_opcode == 7'b0110111);
+    wire ex_mem_is_jal  = (ex_mem_opcode == 7'b1101111);
+    wire ex_mem_is_jalr = (ex_mem_opcode == 7'b1100111);
+
+    assign fwd_ex_val =
+        ex_mem_is_lui             ? ex_mem_o_immediate_out :
+        (ex_mem_is_jal | ex_mem_is_jalr) ? ex_mem_pc_plus_4_out :
+                                            ex_mem_o_result_out;
     // MEM->EX: combinational writeback mux over MEM/WB regs
     writeback_phase iDUT_fwd_wb (
         .rd_dest_select    (mem_wb_rd_dest_select_out),

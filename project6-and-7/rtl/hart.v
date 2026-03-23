@@ -168,6 +168,10 @@ module hart #(
 
     assign o_imem_raddr = pc_reg;
 
+    /// Instrction fetch update for multi-cycle instruction memory
+    assign o_imem_ren = ~i_rst & ~stall & i_imem_ready;
+
+
     always @(posedge i_clk) begin
         if (i_rst)
             pc_reg <= RESET_ADDR;
@@ -198,7 +202,7 @@ module hart #(
             if_id_pc_plus_4_out    <= 32'b0;
             if_id_i_imem_rdata_out <= 32'b0;
             if_id_valid_out        <= 1'b0;
-        end else if (!stall) begin
+        end else if (!stall & i_imem_valid) begin
             if_id_pc_reg_out       <= pc_reg;
             if_id_pc_plus_4_out    <= pc_plus_4;
             if_id_i_imem_rdata_out <= i_imem_rdata;
@@ -413,7 +417,7 @@ module hart #(
             ex_mem_dmem_wen_out       <= 1'b0;
             ex_mem_i_rd_wen_out       <= 1'b0;
             ex_mem_valid_out          <= 1'b0;
-        end else begin
+        end else if (!stall & i_dmem_ready) begin
             ex_mem_pc_plus_4_out      <= id_ex_pc_plus_4_out;
             ex_mem_pc_next_out        <= execute_pc_next;
             ex_mem_i_imem_rdata_out   <= id_ex_i_imem_rdata_out;
@@ -453,7 +457,7 @@ module hart #(
     );
 
     /////////////////////////////////////
-    // Memory-Execute Pipeline
+    // Memory-Writeback Pipeline
     /////////////////////////////////////
     reg  [31:0] mem_wb_pc_plus_4_out;
     reg  [31:0] mem_wb_pc_next_out;
@@ -492,7 +496,7 @@ module hart #(
             mem_wb_dmem_mask_out      <= 4'b0;
             mem_wb_dmem_wdata_out     <= 32'b0;
             mem_wb_dmem_rdata_out     <= 32'b0;
-        end else begin
+        end else if (i_dmem_valid) begin
             mem_wb_pc_plus_4_out      <= ex_mem_pc_plus_4_out;
             mem_wb_pc_next_out        <= ex_mem_pc_next_out;
             mem_wb_i_imem_rdata_out   <= ex_mem_i_imem_rdata_out;

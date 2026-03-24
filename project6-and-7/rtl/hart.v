@@ -165,11 +165,25 @@ module hart #(
     reg  [31:0] pc_reg;
     wire [31:0] pc_next;
     wire [31:0] pc_plus_4 = pc_reg + 32'd4;
-
+    reg imem_ren_reg;
     assign o_imem_raddr = pc_reg;
 
     /// Instrction fetch update for multi-cycle instruction memory
-    assign o_imem_ren = ~i_rst & ~stall & i_imem_ready;
+    
+    always @(posedge i_clk) begin
+        if (i_rst)
+            imem_ren_reg <= 1'b0;
+        else if (stall)
+            imem_ren_reg <= 1'b0;
+        else if (i_imem_valid)
+            imem_ren_reg <= 1'b0;
+        else if (i_imem_ready)
+            imem_ren_reg <= 1'b1;
+        else
+            imem_ren_reg <= imem_ren_reg;
+    end
+    
+    assign o_imem_ren = imem_ren_reg;
 
 
     always @(posedge i_clk) begin

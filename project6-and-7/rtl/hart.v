@@ -157,7 +157,7 @@ module hart #(
     // instructions, this is `o_retire_pc + 4`, but must be the branch or jump
     // target for *taken* branches and jumps.
     output wire [31:0] o_retire_next_pc
-);
+
 `ifdef RISCV_FORMAL
     ,`RVFI_OUTPUTS,
 `endif
@@ -165,21 +165,65 @@ module hart #(
     /////////////////////////////////////
     // PC/Instruction Fetch Phase
     /////////////////////////////////////
-    wire stall, flush;
-    reg  [31:0] pc_reg;
-    wire [31:0] pc_next;
-    wire [31:0] pc_plus_4 = pc_reg + 32'd4;
+   wire load_use_hazard;
+//mem_stall used to stall the pipeline when there is memory access that has not yet completed
+//solves the problem of not all memory accessing taking same number of cycles
+wire mem_stall;
+//ex_flush is used to flush the pipeline when there is a branch misprediction or jump
+wire ex_flush;
+//jal_redirect is used to redirect the PC to the correct target when there is a jal instruction
+wire jal_redirect;
+wire flush;
 
-    assign o_imem_raddr = pc_reg;
+reg  [31:0] pc_reg;
+wire [31:0] pc_next;
+wire [31:0] pc_plus_4 = pc_reg + 32'd4;
 
-    always @(posedge i_clk) begin
-        if (i_rst)
-            pc_reg <= RESET_ADDR;
-        else if (flush | !stall)
-            pc_reg <= pc_next;
-        else
-            pc_reg <= pc_reg;
+// if_pending is used to track whether there is an outstanding instruction fetch request
+reg if_pending;
+
+
+//fronted hold is used to stall the instruction fetch and decode stages when there is a load-use hazard or memory stall
+// Ex. 
+// lw x1, 0(x2)
+// add x3, x1, x4 in this case x1 might not be ready when add is in decode stage, so we need to stall the pipeline until x1 is ready
+wire frontend_hold;
+
+//extra securr signal to deal with situation when jalr is in execution and and an available fetch slot is there,
+// we don't want to issue a fetch in this case until we know whether jalr is taken or not
+wire control_fetch_hold;
+
+//fetch_issue is used to determine when to issue a fetch request,
+//is used to stall a fetch when a fetch is already pending, or to avoid
+// fetching instruction when branch is in execute stage and we don't know yet if it's taken or not
+// cases when fetch_issue should be false:
+// 1. when there is already a fetch pending (if_pending is true)
+// 2. when there is a branch in execute stage and we don't know yet if it's taken or not (control_fetch_hold is true)
+// 3. when there is a load-use hazard (load_use_hazard is true)
+
+wire fetch_issue;
+
+assign frontend_hold = load_use_hazard | mem_stall;
+assign o_imem_raddr  = pc_reg;
+assign o_imem_ren    = fetch_issue;
+
+//flop to determine when to issue a fetch
+always @(posedge i_clk) begin
+    if (i_rst) begin
+        pc_reg     <= RESET_ADDR;
+        if_pending <= 1'b0;
+    end else begin
+        if (flush) begin
+            pc_reg     <= pc_next;
+            if_pending <= 1'b0;
+        end else if (fetch_issue) begin
+            if_pending <= 1'b1;
+        end else if (i_imem_valid & if_pending) begin
+            pc_reg     <= pc_plus_4;
+            if_pending <= 1'b0;
+        end
     end
+end
 
     /////////////////////////////////////
     // Fetch-Decode Pipeline
@@ -197,16 +241,22 @@ module hart #(
     assign if_id_is_jal  = (if_id_opcode == 7'b1101111);
 
     always @(posedge i_clk) begin
-        if (i_rst | (if_id_valid_out & if_id_is_jal) | flush) begin
+        if (i_rst | flush) begin
             if_id_pc_reg_out       <= 32'b0;
             if_id_pc_plus_4_out    <= 32'b0;
             if_id_i_imem_rdata_out <= 32'b0;
             if_id_valid_out        <= 1'b0;
-        end else if (!stall) begin
+        
+        end else if (i_imem_valid & if_pending) begin
             if_id_pc_reg_out       <= pc_reg;
             if_id_pc_plus_4_out    <= pc_plus_4;
             if_id_i_imem_rdata_out <= i_imem_rdata;
             if_id_valid_out        <= 1'b1;
+        end else if(~frontend_hold) begin
+            if_id_pc_reg_out <= 32'b0;
+             if_id_pc_plus_4_out    <= 32'b0;
+            if_id_i_imem_rdata_out <= 32'b0;
+            if_id_valid_out        <= 1'b0;
         end
     end
 
@@ -291,8 +341,7 @@ module hart #(
     reg         id_ex_valid_out;
 
     always @(posedge i_clk) begin
-        if (i_rst | stall | flush) begin
-            id_ex_pc_reg_out          <= 32'b0;
+         if (i_rst | load_use_hazard | ex_flush) begin            id_ex_pc_reg_out          <= 32'b0;
             id_ex_pc_plus_4_out       <= 32'b0;
             id_ex_i_imem_rdata_out    <= 32'b0;
             id_ex_o_rs1_rdata_out     <= 32'b0;
@@ -315,6 +364,30 @@ module hart #(
             id_ex_i_alu_src_out       <= 1'b0;
             id_ex_i_rd_wen_out        <= 1'b0;
             id_ex_valid_out           <= 1'b0;
+        end else if(mem_stall) begin
+            id_ex_pc_reg_out          <= id_ex_pc_reg_out;
+            id_ex_pc_plus_4_out       <= id_ex_pc_plus_4_out;
+            id_ex_i_imem_rdata_out    <= id_ex_i_imem_rdata_out;
+            id_ex_o_rs1_rdata_out     <= id_ex_o_rs1_rdata_out;
+            id_ex_o_rs2_rdata_out     <= id_ex_o_rs2_rdata_out;
+            id_ex_o_immediate_out     <= id_ex_o_immediate_out;
+            id_ex_jump_out            <= id_ex_jump_out;
+            id_ex_jalr_out            <= id_ex_jalr_out;
+            id_ex_branch_out          <= id_ex_branch_out;
+            id_ex_branch_type_out     <= id_ex_branch_type_out;
+            id_ex_rd_dest_select_out  <= id_ex_rd_dest_select_out;
+            id_ex_store_sel_out       <= id_ex_store_sel_out;
+            id_ex_load_sel_out        <= id_ex_load_sel_out;
+            id_ex_dmem_ren_out        <= id_ex_dmem_ren_out;
+            id_ex_dmem_wen_out        <= id_ex_dmem_wen_out;
+            id_ex_i_opsel_out         <= id_ex_i_opsel_out;
+            id_ex_i_arith_out         <= id_ex_i_arith_out;
+            id_ex_i_unsigned_out      <= id_ex_i_unsigned_out;
+            id_ex_i_sub_out           <= id_ex_i_sub_out;
+            id_ex_auipc_out           <= id_ex_auipc_out;
+            id_ex_i_alu_src_out       <= id_ex_i_alu_src_out;
+            id_ex_i_rd_wen_out        <= id_ex_i_rd_wen_out;
+            id_ex_valid_out           <= id_ex_valid_out;
         end else begin
             id_ex_pc_reg_out          <= if_id_pc_reg_out;
             id_ex_pc_plus_4_out       <= if_id_pc_plus_4_out;
@@ -380,9 +453,30 @@ module hart #(
         .o_rs2_fwd        (ex_rs2_fwd)
     );
     
-    assign flush = id_ex_valid_out & (id_ex_jalr_out | (id_ex_branch_out & br_condition_met));
-    assign pc_next = flush ? execute_pc_next : (if_id_is_jal ? (if_id_pc_reg_out + o_immediate) : pc_plus_4);
-    
+
+    assign jal_redirect = if_id_valid_out & if_id_is_jal;
+
+    assign ex_flush = id_ex_valid_out &
+                    (id_ex_jalr_out | (id_ex_branch_out & br_condition_met));
+
+    assign flush = ex_flush | jal_redirect;
+
+    assign pc_next = ex_flush ? execute_pc_next
+                            : (if_id_pc_reg_out + o_immediate);
+
+    assign control_fetch_hold = (if_id_valid_out & if_id_is_jal) |
+                                (id_ex_valid_out & (id_ex_branch_out | id_ex_jalr_out));
+
+    // Issue a new instruction fetch only when fetch is not blocked by reset,
+    // an outstanding request, a filled IF/ID stage, pipeline stalls, control hazards,
+    // and when instruction memory is ready.
+    assign fetch_issue = ~i_rst &
+                        ~if_pending &
+                        ~if_id_valid_out &
+                        ~frontend_hold &
+                        ~control_fetch_hold &
+                        i_imem_ready;
+  
     /////////////////////////////////////
     // Execute-Memory Pipeline
     /////////////////////////////////////
@@ -401,7 +495,7 @@ module hart #(
     reg         ex_mem_i_rd_wen_out;
     reg         ex_mem_valid_out;
 
-    always @(posedge i_clk) begin
+     always @(posedge i_clk) begin
         if (i_rst) begin
             ex_mem_pc_plus_4_out      <= 32'b0;
             ex_mem_pc_next_out        <= 32'b0;
@@ -417,6 +511,22 @@ module hart #(
             ex_mem_dmem_wen_out       <= 1'b0;
             ex_mem_i_rd_wen_out       <= 1'b0;
             ex_mem_valid_out          <= 1'b0;
+        end else if (mem_stall) begin
+            // Hold EX/MEM while waiting for data memory to finish.
+            ex_mem_pc_plus_4_out      <= ex_mem_pc_plus_4_out;
+            ex_mem_pc_next_out        <= ex_mem_pc_next_out;
+            ex_mem_i_imem_rdata_out   <= ex_mem_i_imem_rdata_out;
+            ex_mem_o_result_out       <= ex_mem_o_result_out;
+            ex_mem_o_rs1_rdata_out    <= ex_mem_o_rs1_rdata_out;
+            ex_mem_o_rs2_rdata_out    <= ex_mem_o_rs2_rdata_out;
+            ex_mem_o_immediate_out    <= ex_mem_o_immediate_out;
+            ex_mem_rd_dest_select_out <= ex_mem_rd_dest_select_out;
+            ex_mem_store_sel_out      <= ex_mem_store_sel_out;
+            ex_mem_load_sel_out       <= ex_mem_load_sel_out;
+            ex_mem_dmem_ren_out       <= ex_mem_dmem_ren_out;
+            ex_mem_dmem_wen_out       <= ex_mem_dmem_wen_out;
+            ex_mem_i_rd_wen_out       <= ex_mem_i_rd_wen_out;
+            ex_mem_valid_out          <= ex_mem_valid_out;
         end else begin
             ex_mem_pc_plus_4_out      <= id_ex_pc_plus_4_out;
             ex_mem_pc_next_out        <= execute_pc_next;
@@ -440,6 +550,21 @@ module hart #(
     /////////////////////////////////////
     wire [31:0] load_mux_out;
 
+    wire [31:0] dmem_addr_raw;
+    wire        dmem_ren_raw;
+    wire        dmem_wen_raw;
+    wire [31:0] dmem_wdata_raw;
+    wire [ 3:0] dmem_mask_raw;
+
+    wire ex_mem_is_mem;
+    wire dmem_req_fire;
+    wire dmem_rsp_fire;
+    wire load_rsp_fire;
+    wire store_rsp_fire;
+    wire mem_wb_take;
+
+    reg dmem_pending;
+
     memory_phase iDUT_memory (
         .alu_result   (ex_mem_o_result_out),
         .load_sel     (ex_mem_load_sel_out),
@@ -448,13 +573,59 @@ module hart #(
         .dmem_wen     (ex_mem_dmem_wen_out),
         .o_rs2_rdata  (ex_mem_o_rs2_rdata_out),
         .i_dmem_rdata (i_dmem_rdata),
-        .o_dmem_addr  (o_dmem_addr),
-        .o_dmem_ren   (o_dmem_ren),
-        .o_dmem_wen   (o_dmem_wen),
-        .o_dmem_wdata (o_dmem_wdata),
-        .o_dmem_mask  (o_dmem_mask),
+        .o_dmem_addr  (dmem_addr_raw),
+        .o_dmem_ren   (dmem_ren_raw),
+        .o_dmem_wen   (dmem_wen_raw),
+        .o_dmem_wdata (dmem_wdata_raw),
+        .o_dmem_mask  (dmem_mask_raw),
         .load_mux_out (load_mux_out)
     );
+
+    assign ex_mem_is_mem = ex_mem_valid_out & (dmem_ren_raw | dmem_wen_raw);
+    // A memory request fires when a valid memory instruction is present,
+    // no prior load is still pending, and memory is ready to accept the request.
+    assign dmem_req_fire = ex_mem_is_mem & ~dmem_pending & i_dmem_ready;
+
+    // A load response is considered "fired" when the load is valid,
+    // the memory is returning valid data, 
+    // and the load is the instruction at the head of the memory queue 
+    assign load_rsp_fire  = ex_mem_valid_out & dmem_ren_raw & i_dmem_valid & (dmem_pending | dmem_req_fire);
+
+    // A store response is considered "fired" when the store is valid,
+    // the store request is accepted by memory,
+    // and the store is the instruction at the head of the memory queue
+    //i_dmem_Valid is not necessary because when dmem_wen_raw is asserted it is considered a valid
+    // store instruction and we can consider it "fired"
+    assign store_rsp_fire = ex_mem_valid_out & dmem_wen_raw & dmem_req_fire;
+
+    // The memory stage is considered to have "fired" when either a load or store response has fired,
+    // since both indicate that the instruction at the head of the memory queue has completed and can be retired.
+    assign dmem_rsp_fire  = load_rsp_fire | store_rsp_fire;
+
+
+    assign mem_stall = ex_mem_valid_out &
+                    ((dmem_ren_raw & ~load_rsp_fire) |
+                        (dmem_wen_raw & ~store_rsp_fire));
+
+    //raw registers needed to separate datapath from control logic.
+    //The raw signals are not strictly required,
+    // but they provide a clean intermediate representation of the intended memory operation 
+    assign o_dmem_addr  = dmem_addr_raw;
+    assign o_dmem_mask  = dmem_mask_raw;
+    assign o_dmem_wdata = dmem_wdata_raw;
+    assign o_dmem_ren   = dmem_ren_raw & ex_mem_valid_out & ~dmem_pending & i_dmem_ready;
+    assign o_dmem_wen   = dmem_wen_raw & ex_mem_valid_out & ~dmem_pending & i_dmem_ready;
+
+    //flop to track whether there is an outstanding memory request
+    // This is necessary to ensure that we don't issue multiple memory requests.
+    always @(posedge i_clk) begin
+        if (i_rst)
+            dmem_pending <= 1'b0;
+        else if (load_rsp_fire)
+            dmem_pending <= 1'b0;
+        else if (dmem_req_fire & dmem_ren_raw)
+            dmem_pending <= 1'b1;
+    end
 
     /////////////////////////////////////
     // Memory-Execute Pipeline
@@ -477,6 +648,11 @@ module hart #(
     reg [31:0] mem_wb_dmem_wdata_out;
     reg [31:0] mem_wb_dmem_rdata_out;
 
+
+    //mem_wb_take is the signal that indicates when the MEM/WB pipeline register should latch new values from the EX/MEM stage.
+    // This should only happen when the instruction in EX/MEM is valid and either:
+    assign mem_wb_take = ex_mem_valid_out & ((~ex_mem_is_mem) | load_rsp_fire | store_rsp_fire);
+
     always @(posedge i_clk) begin
         if (i_rst) begin
             mem_wb_pc_plus_4_out      <= 32'b0;
@@ -496,7 +672,7 @@ module hart #(
             mem_wb_dmem_mask_out      <= 4'b0;
             mem_wb_dmem_wdata_out     <= 32'b0;
             mem_wb_dmem_rdata_out     <= 32'b0;
-        end else begin
+        end else if (mem_wb_take) begin
             mem_wb_pc_plus_4_out      <= ex_mem_pc_plus_4_out;
             mem_wb_pc_next_out        <= ex_mem_pc_next_out;
             mem_wb_i_imem_rdata_out   <= ex_mem_i_imem_rdata_out;
@@ -508,12 +684,14 @@ module hart #(
             mem_wb_rd_dest_select_out <= ex_mem_rd_dest_select_out;
             mem_wb_i_rd_wen_out       <= ex_mem_i_rd_wen_out;
             mem_wb_valid_out          <= ex_mem_valid_out;
-            mem_wb_dmem_addr_out      <= o_dmem_addr;
-            mem_wb_dmem_ren_out       <= o_dmem_ren;
-            mem_wb_dmem_wen_out       <= o_dmem_wen;
-            mem_wb_dmem_mask_out      <= o_dmem_mask;
-            mem_wb_dmem_wdata_out     <= o_dmem_wdata;
+            mem_wb_dmem_addr_out      <= dmem_addr_raw;
+            mem_wb_dmem_ren_out       <= dmem_ren_raw;
+            mem_wb_dmem_wen_out       <= dmem_wen_raw;
+            mem_wb_dmem_mask_out      <= dmem_mask_raw;
+            mem_wb_dmem_wdata_out     <= dmem_wdata_raw;
             mem_wb_dmem_rdata_out     <= i_dmem_rdata;
+        end else begin
+            mem_wb_valid_out <= 1'b0;
         end
     end
 
@@ -534,6 +712,9 @@ module hart #(
         (ex_mem_is_jal | ex_mem_is_jalr) ? ex_mem_pc_plus_4_out :
                                             ex_mem_o_result_out;
     // MEM->EX: combinational writeback mux over MEM/WB regs
+    
+
+
     writeback_phase iDUT_fwd_wb (
         .rd_dest_select    (mem_wb_rd_dest_select_out),
         .alu_result        (mem_wb_o_result_out),
@@ -543,16 +724,22 @@ module hart #(
         .writeback_mux_out (fwd_mem_val)
     );
 
-    forwarding_unit iDUT_fwd (
+    wire [1:0] forward_a;
+    wire [1:0] forward_b;
+
+    forwarding_unit iDUT_forwarding (
         .ex_rs1       (id_ex_i_imem_rdata_out[19:15]),
         .ex_rs2       (id_ex_i_imem_rdata_out[24:20]),
         .exmem_rd     (ex_mem_i_imem_rdata_out[11:7]),
-        .exmem_rd_wen (ex_mem_i_rd_wen_out),
+        .exmem_rd_wen (ex_mem_valid_out & ex_mem_i_rd_wen_out),
         .memwb_rd     (mem_wb_i_imem_rdata_out[11:7]),
-        .memwb_rd_wen (mem_wb_i_rd_wen_out),
-        .fwd_rs1_sel  (fwd_alu_src_i_op1),
-        .fwd_rs2_sel  (fwd_alu_src_i_op2)
+        .memwb_rd_wen (mem_wb_valid_out & mem_wb_i_rd_wen_out),
+        .fwd_rs1_sel  (forward_a),
+        .fwd_rs2_sel  (forward_b)
     );
+
+    assign fwd_alu_src_i_op1 = forward_a;
+    assign fwd_alu_src_i_op2 = forward_b;
 
     /////////////////////////////////////
     // Writeback Phase
@@ -569,7 +756,7 @@ module hart #(
     // WB -> Decode register file write port feedback
     assign wb_rd_waddr = mem_wb_i_imem_rdata_out[11:7];
     assign wb_rd_wdata = writeback_mux_out;
-    assign wb_rd_wen   = mem_wb_i_rd_wen_out;
+    assign wb_rd_wen   = mem_wb_valid_out & mem_wb_i_rd_wen_out;
 
     assign o_retire_dmem_addr  = mem_wb_dmem_addr_out;
     assign o_retire_dmem_ren   = mem_wb_dmem_ren_out;
@@ -609,13 +796,12 @@ module hart #(
         (id_opcode == 7'b1100011);    // branches
 
     // Load-use hazard: EX stage is a load and rd matches ID stage rs1/rs2
-    wire load_use_hazard = id_ex_dmem_ren_out & (ex_rd != 5'd0) &
-        (
-            (id_uses_rs1 & (ex_rd == id_rs1)) |
-            (id_uses_rs2 & (ex_rd == id_rs2))
-        );
+    assign load_use_hazard = id_ex_dmem_ren_out & (ex_rd != 5'd0) &
+    (
+        (id_uses_rs1 & (ex_rd == id_rs1)) |
+        (id_uses_rs2 & (ex_rd == id_rs2))
+    );
 
-    assign stall = load_use_hazard;
 
     /////////////////////////////////////
     // Retire Interface - hart comments

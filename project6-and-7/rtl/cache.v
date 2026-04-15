@@ -91,7 +91,138 @@ module cache (
     reg [1:0] valid [DEPTH - 1:0];
     reg       lru   [DEPTH - 1:0];
 
-    // Fill in your implementation here.
+    // new variable for block fill byte offset
+    reg [1:0] fill_block_offset;
+
+    // Output registers because we have to use stupid Verilog and stupid wires
+    reg        o_busy_r;
+    reg [31:0] o_mem_addr_r;
+    reg        o_mem_ren_r;
+    reg        o_mem_wen_r;
+    reg [31:0] o_mem_wdata_r;
+    reg [31:0] o_res_rdata_r;
+    assign o_busy = o_busy_r;
+    assign o_mem_addr = o_mem_addr_r;
+    assign o_mem_ren = o_mem_ren_r;
+    assign o_mem_wen = o_mem_wen_r;
+    assign o_mem_wdata = o_mem_wdata_r;
+    assign o_res_rdata = o_res_rdata_r;
+
+    // Finite State Machine states
+    localparam READY = 2'b00;
+    localparam FETCH = 2'b01;
+    localparam FILL = 2'b10;
+    localparam WRITEBACK = 2'b11;
+
+    reg [1:0] state;
+    reg [1:0] next_state;
+    integer i;
+
+    always @(posedge i_clk, i_rst) begin
+        if (i_rst) begin
+            state <= READY;
+            next_state <= READY;
+            for (i = 0; i < DEPTH; i = i + 1) begin
+                valid[i] <= 0; // Invalidate all cache lines on reset
+            end
+        end else begin
+            state <= next_state;
+        end
+    end
+
+    always @(*) begin
+        case (state)
+            READY: begin //resolve cache hits combinationally, otherwise miss
+                o_busy_r = 0;
+                o_mem_wen_r = 0;
+                if (i_req_ren) begin
+                    if ( (tags0[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][0] ) begin
+                        o_res_rdata_r = datas0[i_req_addr[8:4]][i_req_addr[3:2]]; //read from way 0
+                        lru[i_req_addr[8:4]] = 1; // way 0 is most recently used
+                    // TO DO: add support for i_req_mask to specify bytes and half words
+                    end else if ( (tags1[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][1] ) begin
+                        o_res_rdata_r = datas1[i_req_addr[8:4]][i_req_addr[3:2]]; //read from way 1
+                        lru[i_req_addr[8:4]] = 0; // way 1 is most recently used
+                    // TO DO: add support for i_req_mask to specify bytes and half words
+                    end else begin 
+                        next_state = FETCH;
+                    end  
+                end else if (i_req_wen) begin
+                    if ( (tags0[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][0] ) begin
+                        datas0[i_req_addr[8:4]][i_req_addr[3:2]] = i_req_wdata; //write to way 0
+                        lru[i_req_addr[8:4]] = 1; // way 0 is most recently used
+                        // TO DO: add support for i_req_mask to specify bytes and half words
+                        // WRITE-THROUGH: 
+                        if (i_mem_ready) begin
+                            o_mem_addr_r = i_req_addr; // write to the same address in memory
+                            o_mem_wdata_r = i_req_wdata; // write the same data to memory
+                            o_mem_wen_r = 1;
+                        end else begin
+                            next_state = WRITEBACK; // if memory is not ready, go to writeback state to wait for it to be ready
+                        end
+                    end
+                    else if ( (tags1[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][1] ) begin
+                        datas1[i_req_addr[8:4]][i_req_addr[3:2]] = i_req_wdata;
+                        lru[i_req_addr[8:4]] = 0; // way 1 is most recently used
+                        // TO DO: add support for i_req_mask to specify bytes and half words
+                        // WRITE-THROUGH: 
+                        if (i_mem_ready) begin
+                            o_mem_addr_r = i_req_addr; // write to the same address in memory
+                            o_mem_wdata_r = i_req_wdata; // write the same data to memory
+                            o_mem_wen_r = 1;
+                        end else begin
+                            next_state = WRITEBACK; // if memory is not ready, go to writeback state to wait for it to be ready
+                        end
+                    end
+                    else begin
+                        fill_block_offset = 0; // start filling from the first word in the block
+                        next_state = FETCH;
+                    end
+                end
+            end
+            FETCH: begin // Request data from memory
+                o_busy_r = 1;
+                o_mem_addr_r = {i_req_addr[31:4], fill_block_offset, 2'b00}; // align address to cache line and add block offset
+                if (i_mem_ready) begin
+                    o_mem_ren_r = 1;
+                    next_state = FILL;
+                end
+            end
+            FILL: begin
+                if (i_mem_valid) begin
+                    o_mem_ren_r = 0;
+                    if (lru[i_req_addr[8:4]] == 0) begin // evict way 0
+                        tags0[i_req_addr[8:4]] = i_req_addr[31:9];
+                        datas0[i_req_addr[8:4]][fill_block_offset] = i_mem_rdata; //place word 0
+                        valid[i_req_addr[8:4]][0] = 1; // mark way 0 as valid
+                        lru[i_req_addr[8:4]] = 1; // way 0 is now most recently used
+                    end else begin // evict way 1
+                        tags1[i_req_addr[8:4]] = i_req_addr[31:9];
+                        datas1[i_req_addr[8:4]][fill_block_offset] = i_mem_rdata; //place word 0
+                        valid[i_req_addr[8:4]][1] = 1; // mark way 1 as valid
+                        lru[i_req_addr[8:4]] = 0; // way 1 is now most recently used
+                    end
+                    if (fill_block_offset == 2'b11) begin
+                        next_state = READY; // finished filling the block, go back to ready state
+                    end else begin
+                        fill_block_offset = fill_block_offset + 1; // move to the next word in the block
+                        next_state = FETCH; 
+                    end
+                end
+            end
+            WRITEBACK: begin
+                o_busy_r = 1;
+                if (i_mem_ready) begin
+                    o_mem_addr_r = i_req_addr; // write to the same address in memory
+                    o_mem_wdata_r = i_req_wdata; // write the same data to memory
+                    o_mem_wen_r = 1;
+                    next_state = READY; // after writeback, go back to ready state
+                end
+            end
+            default: next_state = READY;
+        endcase
+    end
+
 endmodule
 
 `default_nettype wire

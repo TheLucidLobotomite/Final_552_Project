@@ -117,6 +117,7 @@ module cache (
     reg [1:0] state;
     reg [1:0] next_state;
     integer i;
+    reg lru_set;
 
     always @(posedge i_clk, i_rst) begin
         if (i_rst) begin
@@ -124,6 +125,9 @@ module cache (
             next_state <= READY;
             for (i = 0; i < DEPTH; i = i + 1) begin
                 valid[i] <= 0; // Invalidate all cache lines on reset
+            end
+            for (i = 0; i < DEPTH; i = i + 1) begin
+                lru[i] <= 0; // Invalidate all cache lines on reset
             end
         end else begin
             state <= next_state;
@@ -135,19 +139,21 @@ module cache (
             READY: begin //resolve cache hits combinationally, otherwise miss
                 o_busy_r = 0;
                 o_mem_wen_r = 0;
-                if (i_req_ren) begin
-                    if ( ((tags0[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][0] ) begin
+
+                if ( ((tags0[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][0] ) begin
                         o_res_rdata_r = datas0[i_req_addr[8:4]][i_req_addr[3:2]]; //& {{8{i_req_mask[3]}}, {8{i_req_mask[2]}}, {8{i_req_mask[1]}}, {8{i_req_mask[0]}}}; //read from way 0
                         lru[i_req_addr[8:4]] = 1; // way 0 is most recently used
                     // TO DO: add support for i_req_mask to specify bytes and half words
-                    end else if ( ((tags1[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][1] ) begin
+                end else if ( ((tags1[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][1] ) begin
                         o_res_rdata_r = datas1[i_req_addr[8:4]][i_req_addr[3:2]]; //& {{8{i_req_mask[3]}}, {8{i_req_mask[2]}}, {8{i_req_mask[1]}}, {8{i_req_mask[0]}}}; //read from way 1
                         lru[i_req_addr[8:4]] = 0; // way 1 is most recently used
                     // TO DO: add support for i_req_mask to specify bytes and half words
-                    end else begin 
+                end else if (i_req_ren) begin 
+                        fill_block_offset = 0; // start filling from the first word in the block
                         next_state = FETCH;
-                    end
-                end else if (i_req_wen) begin
+                end
+
+                if (i_req_wen) begin
                     if ( ((tags0[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][0] ) begin
                         datas0[i_req_addr[8:4]][i_req_addr[3:2]] = i_req_wdata; //write to way 0
                         lru[i_req_addr[8:4]] = 1; // way 0 is most recently used
@@ -172,10 +178,10 @@ module cache (
                         end else begin
                             next_state = WRITEBACK; // if memory is not ready, go to writeback state to wait for it to be ready
                         end
+                    end else begin
+                        fill_block_offset = 0; // start filling from the first word in the block
+                        next_state = FETCH;
                     end
-                end else begin
-                    fill_block_offset = 0; // start filling from the first word in the block
-                    next_state = FETCH;
                 end
             end
             FETCH: begin // Request data from memory
@@ -193,15 +199,25 @@ module cache (
                         tags0[i_req_addr[8:4]] = i_req_addr[31:9];
                         datas0[i_req_addr[8:4]][fill_block_offset] = i_mem_rdata; //place word 0
                         valid[i_req_addr[8:4]][0] = 1; // mark way 0 as valid
-                        lru[i_req_addr[8:4]] = 1; // way 0 is now most recently used
+                        lru_set = 1; // way 0 is now most recently used
+                       // lru[i_req_addr[8:4]] = 1; // way 0 is now most recently used
+                       // $display("filled tag %h into index %h on way 0", tags0[i_req_addr[8:4]], i_req_addr[8:4]);
+                       // $display("filled data %h into index %h, block offset %h on way 0", datas0[i_req_addr[8:4]][fill_block_offset], i_req_addr[8:4], fill_block_offset);
+                       // $display("set valid bit for index %h to %b on way 0", i_req_addr[8:4], valid[i_req_addr[8:4]][0]);
                     end else begin // evict way 1
                         tags1[i_req_addr[8:4]] = i_req_addr[31:9];
                         datas1[i_req_addr[8:4]][fill_block_offset] = i_mem_rdata; //place word 0
                         valid[i_req_addr[8:4]][1] = 1; // mark way 1 as valid
-                        lru[i_req_addr[8:4]] = 0; // way 1 is now most recently used
+                        lru_set = 0; // way 1 is now most recently used
+                       // lru[i_req_addr[8:4]] = 0; // way 1 is now most recently used
+                       // $display("filled tag %h into index %h on way 1", tags1[i_req_addr[8:4]], i_req_addr[8:4]);
+                       // $display("filled data %h into index %h, block offset %h on way 1", datas1[i_req_addr[8:4]][fill_block_offset], i_req_addr[8:4], fill_block_offset);
+                       // $display("set valid bit for index %h to %b on way 1", i_req_addr[8:4], valid[i_req_addr[8:4]][1]);
                     end
                     if (fill_block_offset == 2'b11) begin
-                        next_state = READY; // finished filling the block, go back to ready state
+                        fill_block_offset = 0; // reset block offset for the next time we need to fill a block
+                        lru[i_req_addr[8:4]] = lru_set; // update LRU bit for the set
+                        next_state = READY; // after filling the whole block, go back to ready state
                     end else begin
                         fill_block_offset = fill_block_offset + 1; // move to the next word in the block
                         next_state = FETCH; 

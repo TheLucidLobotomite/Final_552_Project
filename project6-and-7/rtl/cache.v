@@ -136,19 +136,19 @@ module cache (
                 o_busy_r = 0;
                 o_mem_wen_r = 0;
                 if (i_req_ren) begin
-                    if ( (tags0[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][0] ) begin
-                        o_res_rdata_r = datas0[i_req_addr[8:4]][i_req_addr[3:2]]; //read from way 0
+                    if ( ((tags0[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][0] ) begin
+                        o_res_rdata_r = datas0[i_req_addr[8:4]][i_req_addr[3:2]]; //& {{8{i_req_mask[3]}}, {8{i_req_mask[2]}}, {8{i_req_mask[1]}}, {8{i_req_mask[0]}}}; //read from way 0
                         lru[i_req_addr[8:4]] = 1; // way 0 is most recently used
                     // TO DO: add support for i_req_mask to specify bytes and half words
-                    end else if ( (tags1[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][1] ) begin
-                        o_res_rdata_r = datas1[i_req_addr[8:4]][i_req_addr[3:2]]; //read from way 1
+                    end else if ( ((tags1[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][1] ) begin
+                        o_res_rdata_r = datas1[i_req_addr[8:4]][i_req_addr[3:2]]; //& {{8{i_req_mask[3]}}, {8{i_req_mask[2]}}, {8{i_req_mask[1]}}, {8{i_req_mask[0]}}}; //read from way 1
                         lru[i_req_addr[8:4]] = 0; // way 1 is most recently used
                     // TO DO: add support for i_req_mask to specify bytes and half words
                     end else begin 
                         next_state = FETCH;
-                    end  
+                    end
                 end else if (i_req_wen) begin
-                    if ( (tags0[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][0] ) begin
+                    if ( ((tags0[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][0] ) begin
                         datas0[i_req_addr[8:4]][i_req_addr[3:2]] = i_req_wdata; //write to way 0
                         lru[i_req_addr[8:4]] = 1; // way 0 is most recently used
                         // TO DO: add support for i_req_mask to specify bytes and half words
@@ -160,8 +160,7 @@ module cache (
                         end else begin
                             next_state = WRITEBACK; // if memory is not ready, go to writeback state to wait for it to be ready
                         end
-                    end
-                    else if ( (tags1[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][1] ) begin
+                    end else if ( ((tags1[i_req_addr[8:4]] == i_req_addr[31:9])) && valid[i_req_addr[8:4]][1] ) begin
                         datas1[i_req_addr[8:4]][i_req_addr[3:2]] = i_req_wdata;
                         lru[i_req_addr[8:4]] = 0; // way 1 is most recently used
                         // TO DO: add support for i_req_mask to specify bytes and half words
@@ -174,10 +173,9 @@ module cache (
                             next_state = WRITEBACK; // if memory is not ready, go to writeback state to wait for it to be ready
                         end
                     end
-                    else begin
-                        fill_block_offset = 0; // start filling from the first word in the block
-                        next_state = FETCH;
-                    end
+                end else begin
+                    fill_block_offset = 0; // start filling from the first word in the block
+                    next_state = FETCH;
                 end
             end
             FETCH: begin // Request data from memory

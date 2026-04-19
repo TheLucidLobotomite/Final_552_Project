@@ -165,65 +165,140 @@ module hart #(
     /////////////////////////////////////
     // PC/Instruction Fetch Phase
     /////////////////////////////////////
-   wire load_use_hazard;
-//mem_stall used to stall the pipeline when there is memory access that has not yet completed
-//solves the problem of not all memory accessing taking same number of cycles
-wire mem_stall;
-//ex_flush is used to flush the pipeline when there is a branch misprediction or jump
-wire ex_flush;
-//jal_redirect is used to redirect the PC to the correct target when there is a jal instruction
-wire jal_redirect;
-wire flush;
+    wire load_use_hazard;
+    //mem_stall used to stall the pipeline when there is memory access that has not yet completed
+    //solves the problem of not all memory accessing taking same number of cycles
+    wire mem_stall;
+    //ex_flush is used to flush the pipeline when there is a branch misprediction or jump
+    wire ex_flush;
+    //jal_redirect is used to redirect the PC to the correct target when there is a jal instruction
+    wire jal_redirect;
+    wire flush;
 
-reg  [31:0] pc_reg;
-wire [31:0] pc_next;
-wire [31:0] pc_plus_4 = pc_reg + 32'd4;
+    // Wires to connect icache <-> backing imem
+    wire [31:0] icache_mem_addr;
+    wire        icache_mem_ren;
+    wire        icache_mem_wen;
+    wire [31:0] icache_mem_wdata;
+    wire [31:0] icache_mem_rdata;
+    wire        icache_mem_valid;
+    wire        icache_mem_ready;
+    wire        icache_busy;
+    wire [31:0] icache_res_rdata;
 
-// if_pending is used to track whether there is an outstanding instruction fetch request
-reg if_pending;
+    // Wires to connect dcache <-> backing dmem
+    wire [31:0] dcache_mem_addr;
+    wire        dcache_mem_ren;
+    wire        dcache_mem_wen;
+    wire [31:0] dcache_mem_wdata;
+    wire [31:0] dcache_mem_rdata;
+    wire        dcache_mem_valid;
+    wire        dcache_mem_ready;
+    wire        dcache_busy;
+    wire [31:0] dcache_res_rdata;
 
+    // Not really a good place, so I will just hook up the instantiations here too
+    cache icache (
+        .i_clk          (i_clk),
+        .i_rst          (i_rst),
+        .i_req_addr     (pc_reg),
+        .i_req_ren      (fetch_issue),
+        .i_req_wen      (1'b0),
+        .i_req_mask     (4'b1111),
+        .i_req_wdata    (32'b0),
+        .o_res_rdata    (icache_res_rdata),
+        .o_busy         (icache_busy),
+        .i_mem_ready    (icache_mem_ready),
+        .i_mem_valid    (icache_mem_valid),
+        .i_mem_rdata    (icache_mem_rdata),
+        .o_mem_addr     (icache_mem_addr),
+        .o_mem_ren      (icache_mem_ren),
+        .o_mem_wen      (icache_mem_wen),
+        .o_mem_wdata    (icache_mem_wdata)
+    );
 
-//fronted hold is used to stall the instruction fetch and decode stages when there is a load-use hazard or memory stall
-// Ex. 
-// lw x1, 0(x2)
-// add x3, x1, x4 in this case x1 might not be ready when add is in decode stage, so we need to stall the pipeline until x1 is ready
-wire frontend_hold;
+    cache dcache (
+        .i_clk          (i_clk),
+        .i_rst          (i_rst),
+        .i_req_addr     (dmem_addr_raw),
+        .i_req_ren      (dmem_ren_raw & ex_mem_valid_out),
+        .i_req_wen      (dmem_wen_raw & ex_mem_valid_out),
+        .i_req_mask     (dmem_mask_raw),
+        .i_req_wdata    (dmem_wdata_raw),
+        .o_res_rdata    (dcache_res_rdata),
+        .o_busy         (dcache_busy),
+        .i_mem_ready    (dcache_mem_ready),
+        .i_mem_valid    (dcache_mem_valid),
+        .i_mem_rdata    (dcache_mem_rdata),
+        .o_mem_addr     (dcache_mem_addr),
+        .o_mem_ren      (dcache_mem_ren),
+        .o_mem_wen      (dcache_mem_wen),
+        .o_mem_wdata    (dcache_mem_wdata)
+    );
 
-//extra securr signal to deal with situation when jalr is in execution and and an available fetch slot is there,
-// we don't want to issue a fetch in this case until we know whether jalr is taken or not
-wire control_fetch_hold;
+    // icache <-> external imem port
+    assign icache_mem_ready = i_imem_ready;
+    assign icache_mem_rdata = i_imem_rdata;
+    assign icache_mem_valid = i_imem_valid;
+    assign o_imem_addr      = icache_mem_addr;
+    assign o_imem_ren       = icache_mem_ren;
 
-//fetch_issue is used to determine when to issue a fetch request,
-//is used to stall a fetch when a fetch is already pending, or to avoid
-// fetching instruction when branch is in execute stage and we don't know yet if it's taken or not
-// cases when fetch_issue should be false:
-// 1. when there is already a fetch pending (if_pending is true)
-// 2. when there is a branch in execute stage and we don't know yet if it's taken or not (control_fetch_hold is true)
-// 3. when there is a load-use hazard (load_use_hazard is true)
+    // dcache <-> external dmem port
+    assign dcache_mem_ready = i_dmem_ready;
+    assign dcache_mem_rdata = i_dmem_rdata;
+    assign dcache_mem_valid = i_dmem_valid;
+    assign o_dmem_addr      = dcache_mem_addr;
+    assign o_dmem_ren       = dcache_mem_ren;
+    assign o_dmem_wen       = dcache_mem_wen;
+    assign o_dmem_wdata     = dcache_mem_wdata;
+    assign o_dmem_mask      = dmem_mask_raw;
 
-wire fetch_issue;
+    reg  [31:0] pc_reg;
+    wire [31:0] pc_next;
+    wire [31:0] pc_plus_4 = pc_reg + 32'd4;
 
-assign frontend_hold = load_use_hazard | mem_stall;
-assign o_imem_raddr  = pc_reg;
-assign o_imem_ren    = fetch_issue;
+    // if_pending is used to track whether there is an outstanding instruction fetch request
+    reg if_pending;
 
-//flop to determine when to issue a fetch
-always @(posedge i_clk) begin
-    if (i_rst) begin
-        pc_reg     <= RESET_ADDR;
-        if_pending <= 1'b0;
-    end else begin
-        if (flush) begin
-            pc_reg     <= pc_next;
+    //fronted hold is used to stall the instruction fetch and decode stages when there is a load-use hazard or memory stall
+    // Ex. 
+    // lw x1, 0(x2)
+    // add x3, x1, x4 in this case x1 might not be ready when add is in decode stage, so we need to stall the pipeline until x1 is ready
+    wire frontend_hold;
+
+    //extra securr signal to deal with situation when jalr is in execution and and an available fetch slot is there,
+    // we don't want to issue a fetch in this case until we know whether jalr is taken or not
+    wire control_fetch_hold;
+
+    //fetch_issue is used to determine when to issue a fetch request,
+    //is used to stall a fetch when a fetch is already pending, or to avoid
+    // fetching instruction when branch is in execute stage and we don't know yet if it's taken or not
+    // cases when fetch_issue should be false:
+    // 1. when there is already a fetch pending (if_pending is true)
+    // 2. when there is a branch in execute stage and we don't know yet if it's taken or not (control_fetch_hold is true)
+    // 3. when there is a load-use hazard (load_use_hazard is true)
+
+    wire fetch_issue;
+
+    assign frontend_hold = load_use_hazard | mem_stall;
+
+    //flop to determine when to issue a fetch
+    always @(posedge i_clk) begin
+        if (i_rst) begin
+            pc_reg     <= RESET_ADDR;
             if_pending <= 1'b0;
-        end else if (fetch_issue) begin
-            if_pending <= 1'b1;
-        end else if (i_imem_valid & if_pending) begin
-            pc_reg     <= pc_plus_4;
-            if_pending <= 1'b0;
+        end else begin
+            if (flush) begin
+                pc_reg     <= pc_next;
+                if_pending <= 1'b0;
+            end else if (fetch_issue) begin
+                if_pending <= 1'b1;
+            end else if (~icache_busy & if_pending) begin
+                pc_reg     <= pc_plus_4;
+                if_pending <= 1'b0;
+            end
         end
     end
-end
 
     /////////////////////////////////////
     // Fetch-Decode Pipeline
@@ -246,11 +321,10 @@ end
             if_id_pc_plus_4_out    <= 32'b0;
             if_id_i_imem_rdata_out <= 32'b0;
             if_id_valid_out        <= 1'b0;
-        
-        end else if (i_imem_valid & if_pending) begin
+        end else if (~icache_busy & if_pending) begin
             if_id_pc_reg_out       <= pc_reg;
             if_id_pc_plus_4_out    <= pc_plus_4;
-            if_id_i_imem_rdata_out <= i_imem_rdata;
+            if_id_i_imem_rdata_out <= icache_res_rdata;
             if_id_valid_out        <= 1'b1;
         end else if(~frontend_hold) begin
             if_id_pc_reg_out <= 32'b0;
@@ -471,11 +545,12 @@ end
     // an outstanding request, a filled IF/ID stage, pipeline stalls, control hazards,
     // and when instruction memory is ready.
     assign fetch_issue = ~i_rst &
-                        ~if_pending &
-                        ~if_id_valid_out &
-                        ~frontend_hold &
-                        ~control_fetch_hold &
-                        i_imem_ready;
+                    ~if_pending &
+                    ~if_id_valid_out &
+                    ~frontend_hold &
+                    ~control_fetch_hold &
+                    i_imem_ready &
+                    ~icache_busy;
   
     /////////////////////////////////////
     // Execute-Memory Pipeline
@@ -563,8 +638,6 @@ end
     wire store_rsp_fire;
     wire mem_wb_take;
 
-    reg dmem_pending;
-
     memory_phase iDUT_memory (
         .alu_result   (ex_mem_o_result_out),
         .load_sel     (ex_mem_load_sel_out),
@@ -572,7 +645,7 @@ end
         .dmem_ren     (ex_mem_dmem_ren_out),
         .dmem_wen     (ex_mem_dmem_wen_out),
         .o_rs2_rdata  (ex_mem_o_rs2_rdata_out),
-        .i_dmem_rdata (i_dmem_rdata),
+        .i_dmem_rdata (dcache_res_rdata),
         .o_dmem_addr  (dmem_addr_raw),
         .o_dmem_ren   (dmem_ren_raw),
         .o_dmem_wen   (dmem_wen_raw),
@@ -584,19 +657,19 @@ end
     assign ex_mem_is_mem = ex_mem_valid_out & (dmem_ren_raw | dmem_wen_raw);
     // A memory request fires when a valid memory instruction is present,
     // no prior load is still pending, and memory is ready to accept the request.
-    assign dmem_req_fire = ex_mem_is_mem & ~dmem_pending & i_dmem_ready;
+    assign dmem_req_fire = ex_mem_is_mem & ~dcache_busy;
 
     // A load response is considered "fired" when the load is valid,
     // the memory is returning valid data, 
     // and the load is the instruction at the head of the memory queue 
-    assign load_rsp_fire  = ex_mem_valid_out & dmem_ren_raw & i_dmem_valid & (dmem_pending | dmem_req_fire);
+    assign load_rsp_fire  = ex_mem_valid_out & dmem_ren_raw & ~dcache_busy;
 
     // A store response is considered "fired" when the store is valid,
     // the store request is accepted by memory,
     // and the store is the instruction at the head of the memory queue
     //i_dmem_Valid is not necessary because when dmem_wen_raw is asserted it is considered a valid
     // store instruction and we can consider it "fired"
-    assign store_rsp_fire = ex_mem_valid_out & dmem_wen_raw & dmem_req_fire;
+    assign store_rsp_fire = ex_mem_valid_out & dmem_wen_raw & ~dcache_busy;
 
     // The memory stage is considered to have "fired" when either a load or store response has fired,
     // since both indicate that the instruction at the head of the memory queue has completed and can be retired.
@@ -604,28 +677,12 @@ end
 
 
     assign mem_stall = ex_mem_valid_out &
-                    ((dmem_ren_raw & ~load_rsp_fire) |
-                        (dmem_wen_raw & ~store_rsp_fire));
-
+                         ((dmem_ren_raw & ~load_rsp_fire) |
+                          (dmem_wen_raw & ~store_rsp_fire));
     //raw registers needed to separate datapath from control logic.
     //The raw signals are not strictly required,
     // but they provide a clean intermediate representation of the intended memory operation 
-    assign o_dmem_addr  = dmem_addr_raw;
     assign o_dmem_mask  = dmem_mask_raw;
-    assign o_dmem_wdata = dmem_wdata_raw;
-    assign o_dmem_ren   = dmem_ren_raw & ex_mem_valid_out & ~dmem_pending & i_dmem_ready;
-    assign o_dmem_wen   = dmem_wen_raw & ex_mem_valid_out & ~dmem_pending & i_dmem_ready;
-
-    //flop to track whether there is an outstanding memory request
-    // This is necessary to ensure that we don't issue multiple memory requests.
-    always @(posedge i_clk) begin
-        if (i_rst)
-            dmem_pending <= 1'b0;
-        else if (load_rsp_fire)
-            dmem_pending <= 1'b0;
-        else if (dmem_req_fire & dmem_ren_raw)
-            dmem_pending <= 1'b1;
-    end
 
     /////////////////////////////////////
     // Memory-Execute Pipeline
@@ -689,7 +746,7 @@ end
             mem_wb_dmem_wen_out       <= dmem_wen_raw;
             mem_wb_dmem_mask_out      <= dmem_mask_raw;
             mem_wb_dmem_wdata_out     <= dmem_wdata_raw;
-            mem_wb_dmem_rdata_out     <= i_dmem_rdata;
+            mem_wb_dmem_rdata_out     <= dcache_res_rdata;
         end else begin
             mem_wb_valid_out <= 1'b0;
         end

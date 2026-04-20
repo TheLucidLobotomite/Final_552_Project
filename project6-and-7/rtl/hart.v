@@ -197,6 +197,38 @@ module hart #(
     wire        dcache_busy;
     wire [31:0] dcache_res_rdata;
 
+
+    reg  [31:0] pc_reg;
+    wire [31:0] pc_next;
+    wire [31:0] pc_plus_4 = pc_reg + 32'd4;
+
+
+  // if_pending is used to track whether there is an outstanding instruction fetch request
+    reg if_pending;
+
+    //fronted hold is used to stall the instruction fetch and decode stages when there is a load-use hazard or memory stall
+    // Ex. 
+    // lw x1, 0(x2)
+    // add x3, x1, x4 in this case x1 might not be ready when add is in decode stage, so we need to stall the pipeline until x1 is ready
+    wire frontend_hold;
+
+    //extra securr signal to deal with situation when jalr is in execution and and an available fetch slot is there,
+    // we don't want to issue a fetch in this case until we know whether jalr is taken or not
+    wire control_fetch_hold;
+    
+
+    wire fetch_issue;
+
+    reg ex_mem_valid_out;
+
+    wire [31:0] dmem_addr_raw;
+    wire        dmem_ren_raw;
+    wire        dmem_wen_raw;
+    wire [31:0] dmem_wdata_raw;
+    wire [ 3:0] dmem_mask_raw;
+    wire [31:0] o_imem_addr;
+
+
     // Not really a good place, so I will just hook up the instantiations here too
     cache icache (
         .i_clk          (i_clk),
@@ -253,22 +285,7 @@ module hart #(
     assign o_dmem_wdata     = dcache_mem_wdata;
     assign o_dmem_mask      = dmem_mask_raw;
 
-    reg  [31:0] pc_reg;
-    wire [31:0] pc_next;
-    wire [31:0] pc_plus_4 = pc_reg + 32'd4;
-
-    // if_pending is used to track whether there is an outstanding instruction fetch request
-    reg if_pending;
-
-    //fronted hold is used to stall the instruction fetch and decode stages when there is a load-use hazard or memory stall
-    // Ex. 
-    // lw x1, 0(x2)
-    // add x3, x1, x4 in this case x1 might not be ready when add is in decode stage, so we need to stall the pipeline until x1 is ready
-    wire frontend_hold;
-
-    //extra securr signal to deal with situation when jalr is in execution and and an available fetch slot is there,
-    // we don't want to issue a fetch in this case until we know whether jalr is taken or not
-    wire control_fetch_hold;
+  
 
     //fetch_issue is used to determine when to issue a fetch request,
     //is used to stall a fetch when a fetch is already pending, or to avoid
@@ -278,7 +295,6 @@ module hart #(
     // 2. when there is a branch in execute stage and we don't know yet if it's taken or not (control_fetch_hold is true)
     // 3. when there is a load-use hazard (load_use_hazard is true)
 
-    wire fetch_issue;
 
     assign frontend_hold = load_use_hazard | mem_stall;
 
@@ -568,7 +584,7 @@ module hart #(
     reg         ex_mem_dmem_ren_out;
     reg         ex_mem_dmem_wen_out;
     reg         ex_mem_i_rd_wen_out;
-    reg         ex_mem_valid_out;
+    
 
      always @(posedge i_clk) begin
         if (i_rst) begin
@@ -624,12 +640,6 @@ module hart #(
     // Memory Phase
     /////////////////////////////////////
     wire [31:0] load_mux_out;
-
-    wire [31:0] dmem_addr_raw;
-    wire        dmem_ren_raw;
-    wire        dmem_wen_raw;
-    wire [31:0] dmem_wdata_raw;
-    wire [ 3:0] dmem_mask_raw;
 
     wire ex_mem_is_mem;
     wire dmem_req_fire;

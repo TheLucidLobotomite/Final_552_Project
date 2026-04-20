@@ -117,7 +117,6 @@ module cache (
     reg [1:0] state;
     reg [1:0] next_state;
     integer i;
-    reg lru_set;
 
     // lil bro's got you - rst is a synch so not in sensitivity list
     always @(posedge i_clk) begin
@@ -153,11 +152,17 @@ module cache (
                     end
 
                     if (i_req_wen) begin
-                        if ( (tags0[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][0] ) begin
-                            datas0[i_req_addr[8:4]][i_req_addr[3:2]] <= i_req_wdata; //write to way 0
+                        if ( (tags0[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][0] ) begin //write to way 0
+                            datas0[i_req_addr[8:4]][i_req_addr[3:2]][31:24] <= i_req_mask[3] ? i_req_wdata[31:24] : datas0[i_req_addr[8:4]][i_req_addr[3:2]][31:24];
+                            datas0[i_req_addr[8:4]][i_req_addr[3:2]][23:16] <= i_req_mask[2] ? i_req_wdata[23:16] : datas0[i_req_addr[8:4]][i_req_addr[3:2]][23:16];
+                            datas0[i_req_addr[8:4]][i_req_addr[3:2]][15:8] <= i_req_mask[1] ? i_req_wdata[15:8] : datas0[i_req_addr[8:4]][i_req_addr[3:2]][15:8];
+                            datas0[i_req_addr[8:4]][i_req_addr[3:2]][7:0] <= i_req_mask[0] ? i_req_wdata[7:0] : datas0[i_req_addr[8:4]][i_req_addr[3:2]][7:0];
                             lru[i_req_addr[8:4]] <= 1; // way 0 is most recently used
-                        end else if ( (tags1[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][1] ) begin
-                            datas1[i_req_addr[8:4]][i_req_addr[3:2]] <= i_req_wdata; //write to way 1
+                        end else if ( (tags1[i_req_addr[8:4]] == i_req_addr[31:9]) && valid[i_req_addr[8:4]][1] ) begin //write to way 1
+                            datas1[i_req_addr[8:4]][i_req_addr[3:2]][31:24] <= i_req_mask[3] ? i_req_wdata[31:24] : datas1[i_req_addr[8:4]][i_req_addr[3:2]][31:24];
+                            datas1[i_req_addr[8:4]][i_req_addr[3:2]][23:16] <= i_req_mask[2] ? i_req_wdata[23:16] : datas1[i_req_addr[8:4]][i_req_addr[3:2]][23:16];
+                            datas1[i_req_addr[8:4]][i_req_addr[3:2]][15:8] <= i_req_mask[1] ? i_req_wdata[15:8] : datas1[i_req_addr[8:4]][i_req_addr[3:2]][15:8];
+                            datas1[i_req_addr[8:4]][i_req_addr[3:2]][7:0] <= i_req_mask[0] ? i_req_wdata[7:0] : datas1[i_req_addr[8:4]][i_req_addr[3:2]][7:0];
                             lru[i_req_addr[8:4]] <= 0; // way 1 is most recently used
                         end else begin
                             fill_block_offset <= 0; // start filling from the first word in the block

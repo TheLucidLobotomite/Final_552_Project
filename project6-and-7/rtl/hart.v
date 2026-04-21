@@ -226,7 +226,6 @@ module hart #(
     wire        dmem_wen_raw;
     wire [31:0] dmem_wdata_raw;
     wire [ 3:0] dmem_mask_raw;
-    wire [31:0] o_imem_addr;
 
 
     // Not really a good place, so I will just hook up the instantiations here too
@@ -272,7 +271,7 @@ module hart #(
     assign icache_mem_ready = i_imem_ready;
     assign icache_mem_rdata = i_imem_rdata;
     assign icache_mem_valid = i_imem_valid;
-    assign o_imem_addr      = icache_mem_addr;
+    assign o_imem_raddr     = icache_mem_addr;
     assign o_imem_ren       = icache_mem_ren;
 
     // dcache <-> external dmem port
@@ -561,12 +560,9 @@ module hart #(
     // an outstanding request, a filled IF/ID stage, pipeline stalls, control hazards,
     // and when instruction memory is ready.
     assign fetch_issue = ~i_rst &
-                    ~if_pending &
-                    ~if_id_valid_out &
-                    ~frontend_hold &
-                    ~control_fetch_hold &
-                    i_imem_ready &
-                    ~icache_busy;
+                ~if_pending &
+                ~frontend_hold &
+                ~control_fetch_hold;
   
     /////////////////////////////////////
     // Execute-Memory Pipeline
